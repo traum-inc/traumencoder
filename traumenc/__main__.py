@@ -25,14 +25,10 @@ from PyQt5.QtCore import (
         )
 
 from engine import create_engine
+from utils import format_size
 
-
-def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
+ENGINE_POLL_INTERVAL = 200
+DEFAULT_SEQUENCE_FRAMERATE = (30, 1)
 
 
 def format_media_item(item):
@@ -55,7 +51,7 @@ def format_media_item(item):
     if duration:
         deets.append(f'Duration: {duration:.02f}s')
     if filesize:
-        deets.append(f'Size: {sizeof_fmt(filesize)}')
+        deets.append(f'Size: {format_size(filesize)}')
 
     if deets:
         deets = '<br>'.join(deets)
@@ -84,13 +80,13 @@ class MyListModel(QAbstractListModel):
 
     def removeRows(self, row, count, index):
         items = self._items
-        if 0 <= row and (row + count) <= len(data):
-            self.beginRemoveRows(index, row, row+count-1)
-            self._items = items[:row] + items[row+count:]
-            self.endRemoveRows()
-            return True
-        else:
+        if row < 0 or (row + count) > len(items):
             return False
+
+        self.beginRemoveRows(index, row, row+count-1)
+        self._items = items[:row] + items[row+count:]
+        self.endRemoveRows()
+        return True
 
     def _find_row_with_id(self, id):
         for row, item in enumerate(self._items):
@@ -191,14 +187,21 @@ class MyItemDelegate(QStyledItemDelegate):
         return QSize(128, 128)
 
 
-class HelloWindow(QMainWindow):
-    def __init__(self):
+class MainWindow(QMainWindow):
+    def __init__(self, engine):
         QMainWindow.__init__(self)
+        self._init_engine(engine)
+        self._init_ui()
+
+    def _status(self, message):
+        self.statusBar().showMessage(message)
+
+    def _init_ui(self):
         self.setMinimumSize(QSize(640, 480))
         self.setWindowTitle('traumEnc')
 
         self.setAcceptDrops(True)
-        self.statusBar().showMessage('Ready...')
+        self._status('Ready')
 
         action = QAction(QIcon('icons/exit.png'), '&Exit', self)
         action.setShortcut('Ctrl+Q')
@@ -231,37 +234,14 @@ class HelloWindow(QMainWindow):
         toolbar.addAction(action3)
         toolbar.addAction(action4)
 
-        # ---
-        self.init_listview2()
-
-        # QTreeView, QTreeWidget
-        # QListView, QListWidget
-
-        #title = QLabel('Hello world from PyQt', self)
-        #title.setAlignment(Qt.AlignCenter)
-        #l.addWidget(title, 0, 0)
+        self._init_listview()
 
     def encode_selection(self):
         print('ENCODE')
-        timer = QTimer(self)
-        timer.timeout.connect(self._on_timeout)
-        timer.setInterval(200)
-        timer.start()
-
-    def _on_timeout(self):
-        # update random model stuff
-        model = self._model
-        row = random.randrange(0, len(model._data))
-        item = model._data[row]
-        item = (
-            item[0],
-            item[1],
-            min(1.0, item[2] + 0.1*random.random()))
-        model._data[row] = item
-        idx = model.index(row)
-        model.dataChanged.emit(idx, idx)
-
-        print('TIMEOUT')
+        #timer = QTimer(self)
+        #timer.timeout.connect(self._on_timeout)
+        ##timer.setInterval(200)
+        #timer.start()
 
     def delete_selection(self):
         sel = self._view.selectionModel()
@@ -272,19 +252,10 @@ class HelloWindow(QMainWindow):
         sel.clear()
         pass
 
-    def init_listview(self):
-        lw = QListWidget(self)
-        self.setCentralWidget(lw)
-
-        for entry in os.scandir('./thumbs'):
-            icon = QIcon(entry.path)
-            item = QListWidgetItem(icon, entry.name, lw)
-
-    def init_listview2(self):
+    def _init_listview(self):
         view = QListView(self)
         self.setCentralWidget(view)
 
-        #model = QStandardItemModel()
         model = MyListModel()
         model._data = []
         view.setModel(model)
@@ -292,21 +263,6 @@ class HelloWindow(QMainWindow):
 
         delegate = MyItemDelegate()
         view.setItemDelegate(delegate)
-
-        # adding data to the table
-        if 0:
-            with open('media-items.pickle', 'rb') as f:
-                media_items = list(pickle.load(f).values())
-
-            def foo():
-                try:
-                    item = media_items.pop()
-                    model._update_item(item)
-                    QTimer.singleShot(random.randrange(50, 100), foo)
-                except IndexError:
-                    return
-
-            QTimer.singleShot(300, foo)
 
         self._view = view
         self._model = model
@@ -325,61 +281,68 @@ class HelloWindow(QMainWindow):
 
     def dropEvent(self, e):
         print('drop')
+        paths = []
         for url in e.mimeData().urls():
             if url.isLocalFile():
                 print(url.toLocalFile())
+                paths.append(url.toLocalFile())
 
         print(f'''
             mime-data: {e.mimeData().formats()}
             urls: {e.mimeData().urls()}
         ''')
 
+        self._start_scan(paths)
+
+    def _start_scan(self, paths):
+        if not paths:
+            return
+
+        self._status('Scanning...')
+        self._engine.scan_paths(paths, sequence_framerate=DEFAULT_SEQUENCE_FRAMERATE)
+
+    def _init_engine(self, engine):
+        self._engine = engine
+        timer = QTimer(self)
+        timer.timeout.connect(self._poll_engine)
+        timer.setInterval(ENGINE_POLL_INTERVAL)
+        timer.start()
+
+    def _poll_engine(self):
+        """Respond to engine events.
+        """
+        while True:
+            msg = engine.poll()
+            if not msg:
+                return
+
+            if msg[0] == 'media_update':
+                id = msg[1]
+                data = msg[2]
+                data['id'] = id
+                print(msg[0], id, data.keys())
+                self._model._update_item(data)
+
+            elif msg[0] == 'scan_complete':
+                print('SCAN_COMPLETE')
+                self._status('Scan complete')
+
 
 if __name__ == '__main__':
-    # create the app
     app = QApplication(sys.argv)
 
+    # start the engine
+    engine = create_engine()
+
     # create my widgets
-    main = HelloWindow()
+    main = MainWindow(engine)
     main.show()
-
-    if 1:
-        # timer
-        engine = create_engine()
-
-        main.statusBar().showMessage('Scanning...')
-        engine.send({
-            'command': 'scan_paths',
-            'kwargs': {
-                'paths': ['.'],
-                'sequence_framerate': (30,1),
-                }
-            })
-
-        def on_timeout():
-            while True:
-                msg = engine.poll()
-                if not msg:
-                    break
-                if msg[0] == 'media_update':
-                    id = msg[1]
-                    data = msg[2]
-                    data['id'] = id
-                    print(msg[0], id, data.keys())
-                    main._model._update_item(data)
-
-                elif msg[0] == 'scan_complete':
-                    print('SCAN_COMPLETE')
-                    main.statusBar().showMessage('Scan complete')
-
-        timer = QTimer()
-        timer.timeout.connect(on_timeout)
-        timer.setInterval(200)
-        timer.start()
 
     # start the app
     rc = app.exec_()
-    print('EXEC RETURNED, QUITTING')
 
+    # stop the engine
     engine.join()
+
+    # quit
     sys.exit(rc)

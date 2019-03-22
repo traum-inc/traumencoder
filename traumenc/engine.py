@@ -145,7 +145,7 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
         path = str(seq)
         add_item('sequence', path)
 
-    save_media_items()
+    #save_media_items()
 
     if engine_conn:
         engine_conn.send((
@@ -329,26 +329,24 @@ def start_engine(conn):
 # client
 class EngineProxy(object):
     def __init__(self, proc, conn):
-        self.proc = proc
-        self.conn = conn
+        self._proc = proc
+        self._conn = conn
 
-    def send(self, msg):
-        #msg = (name, args, kwargs)
-        self.conn.send(msg)
-
-    #def scan_paths(self, *args, **kwargs):
-    #    self.send('scan_paths', *args, *kwargs)
+    def scan_paths(self, paths, sequence_framerate=(30,1)):
+        self._send_command('scan_paths', paths=paths, sequence_framerate=sequence_framerate)
 
     def join(self):
-        self.send({'command': 'join', 'kwargs': {}})
-        self.proc.join()
-        print('JOINED')
+        self._send_command('join')
+        self._proc.join()
 
     def poll(self):
-        if not self.conn.poll():
+        if not self._conn.poll():
             return None
-        msg = self.conn.recv()
+        msg = self._conn.recv()
         return msg
+
+    def _send_command(self, name, **kwargs):
+        self._conn.send({ 'command': name, 'kwargs': kwargs })
 
 def create_engine():
     print('create_engine')
