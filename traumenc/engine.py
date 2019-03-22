@@ -92,6 +92,20 @@ def get_sequence_displayname(path):
     displaypath = f'{seq.head}{num}{seq.tail} ({ranges})'
     displayname = os.path.basename(displaypath)
     return displayname
+
+def get_item_default_outpath(item):
+    path = item['path']
+    if item['type'] == 'video':
+        basepath = os.path.splitext(path)[0]
+        outpath = f'{basepath}_prores.mov'
+    elif item['type'] == 'sequence':
+        seq = clique.parse(path)
+        num = '0' * seq.padding
+        outpath = f'{seq.head}{num}{seq.tail}'
+        basepath = os.path.splitext(outpath)[0]
+        outpath = f'{basepath}_prores.mov'
+    return outpath
+
 def save_media_items(filepath=None):
     if not filepath:
         filepath = 'media-items.pickle'
@@ -253,9 +267,22 @@ def thumbnail_item(id, size=(-1, 256)):
     #img = Image.open(f)
     #print('JPEG:', len(out), img.size)
 
+def encode_items(ids):
+    encode_queue = ids
+    while encode_queue:
+        id = encode_queue.pop(0)
+        encode_item(id)
 
-def encode_item(id, outpath):
+
+def encode_item(id, outpath=None):
     item = media_lookup(id)
+    if not item:
+        log.warn(f'encode_item: can\'t find item {id}')
+        return
+
+    if outpath is None:
+        outpath = get_item_default_outpath(item)
+
     inspec = get_ff_input_spec(item)
     codec_args = '-vcodec prores_ks -profile:v 3'
 
@@ -264,7 +291,7 @@ def encode_item(id, outpath):
             {inspec}
             {codec_args}
             -acodec none
-            -y "${outpath}"
+            -y "{outpath}"
     '''
 
     # encode watcher
@@ -324,7 +351,8 @@ def encode_item(id, outpath):
         line.append(ch)
 
     args = shlex.split(cmd)
-    #print(' '.join(args))
+    log.info(f'encode_item: {id} {" ".join(args)}')
+    return
 
     proc = subprocess.Popen(args, bufsize=0, stderr=subprocess.PIPE)
     t0 = time.time()
@@ -371,6 +399,8 @@ def start_engine(conn):
         log.debug(f'received: {cmd} {format_kwargs(kwargs)}')
         if cmd == 'scan_paths':
             scan_paths(**kwargs)
+        elif cmd == 'encode_items':
+            encode_items(**kwargs)
         elif cmd == 'join':
             break
     log.debug('start_engine: exit')
@@ -383,6 +413,9 @@ class EngineProxy(object):
 
     def scan_paths(self, paths, sequence_framerate=(30,1)):
         self._send_command('scan_paths', paths=paths, sequence_framerate=sequence_framerate)
+
+    def encode_items(self, ids):
+        self._send_command('encode_items', ids=ids)
 
     def join(self):
         self._send_command('join')

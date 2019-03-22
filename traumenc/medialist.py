@@ -57,6 +57,11 @@ class MediaListModel(QAbstractListModel):
         else:
             return -1
 
+    def get_media_id_for_index(self, idx):
+        row = idx.row()
+        item = self._items[row]
+        return item['id']
+
     def _update_item(self, data):
         row = self._find_row_with_id(data['id'])
         if row < 0:

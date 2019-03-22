@@ -83,6 +83,13 @@ class MainWindow(QMainWindow):
 
     def _encode_selection(self):
         log.info('encode selection')
+        sel = self._view.selectionModel()
+        media_ids = []
+        for idx in sel.selectedIndexes():
+            media_id = self._model.get_media_id_for_index(idx)
+            media_ids.append(media_id)
+        self._engine.encode_items(media_ids)
+        sel.clear()
 
     def _delete_selection(self):
         sel = self._view.selectionModel()
