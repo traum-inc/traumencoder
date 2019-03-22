@@ -165,7 +165,8 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
             type=type,
             path=path,
             dirpath=os.path.dirname(path),
-            filename=os.path.basename(path)
+            filename=os.path.basename(path),
+            state='new',
             )
 
         if type == 'sequence':
@@ -177,6 +178,7 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
         media_update(id, **ob)
         probe_item(id)
         thumbnail_item(id)
+        media_update(id, state='ready')
 
     for path in videos:
         add_item('video', path)
@@ -268,7 +270,12 @@ def thumbnail_item(id, size=(-1, 256)):
     #print('JPEG:', len(out), img.size)
 
 def encode_items(ids):
-    encode_queue = ids
+    encode_queue = []
+
+    for id in ids:
+        media_update(id, state='queued')
+        encode_queue.append(id)
+
     while encode_queue:
         id = encode_queue.pop(0)
         encode_item(id)
@@ -343,17 +350,19 @@ def encode_item(id, outpath=None):
                 #print('progress:', m.group(0), get_time_from_match(m))
                 progress_secs = get_time_from_match(m)
                 if duration_secs > 0.0:
-                    progress_percent = round(100.0 * progress_secs / duration_secs)
-                    #progress_bar.update(progress_percent)
-                    print('PROGRESS:', progress_percent)
+                    progress = progress_secs / duration_secs
+                    progress_percent = round(100.0 * progress)
+                    log.debug(f'encode_item: {id} {progress_percent}%')
+                    media_update(id, progress=progress)
 
             line = []
         line.append(ch)
 
     args = shlex.split(cmd)
     log.info(f'encode_item: {id} {" ".join(args)}')
-    return
 
+    # start the encoding process
+    media_update(id, state='encoding')
     proc = subprocess.Popen(args, bufsize=0, stderr=subprocess.PIPE)
     t0 = time.time()
     while True:
@@ -369,16 +378,10 @@ def encode_item(id, outpath=None):
             proc.kill()
             break
         """
-        #print(ch, end='')
 
     proc.wait()
-    #progress_bar.close()
-    #print('-- END --')
-
-    #f = io.BytesIO(out)
-    #img = Image.open(f)
-    #print('JPEG:', len(out), img.size)
-
+    # FIXME catch errors
+    media_update(id, progress=1.0, state='done')
 
 def start_engine(conn):
     global engine_conn

@@ -83,7 +83,7 @@ class MediaListModel(QAbstractListModel):
                 item['_image'] = image
 
         # FIXME
-        item['_progress'] = 0.0
+        item['_progress'] = item.get('progress', 0.0)
 
         if row < 0:
             row = len(self._items)
@@ -157,6 +157,7 @@ def format_media_item_html(item):
     resolution = item.get('resolution')
     duration = item.get('duration')
     filesize = item.get('filesize')
+    state = item.get('state')
 
     html = []
     if displayname:
@@ -171,6 +172,8 @@ def format_media_item_html(item):
         deets.append(f'Duration: {duration:.02f}s')
     if filesize:
         deets.append(f'Size: {format_size(filesize)}')
+    if state:
+        deets.append(f'State: {state}')
 
     if deets:
         deets = '<br>'.join(deets)
