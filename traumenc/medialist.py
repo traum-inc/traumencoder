@@ -146,7 +146,7 @@ class MediaItemDelegate(QStyledItemDelegate):
 
 
 def format_media_item_html(item):
-    filename = item.get('filename')
+    displayname = item.get('displayname')
     codec = item.get('codec')
     pixfmt = item.get('pixfmt')
     resolution = item.get('resolution')
@@ -154,8 +154,8 @@ def format_media_item_html(item):
     filesize = item.get('filesize')
 
     html = []
-    if filename:
-        html.append(f'<b style="font-size: 13px;">{filename}</b>')
+    if displayname:
+        html.append(f'<b style="font-size: 13px;">{displayname}</b>')
 
     deets = []
     if codec and pixfmt:

@@ -27,6 +27,7 @@ media_item_template = {
     'path': '',
     'dirpath': '',
     'filename': '',
+    'displayname': '',
     'duration': 0.0,
     'framerate': (30, 1),
     'resolution': (0, 0),
@@ -84,6 +85,13 @@ def calc_media_id(ob):
     m.update(data)
     return m.hexdigest()[:8]
 
+def get_sequence_displayname(path):
+    seq = clique.parse(path)
+    num = '#' * seq.padding
+    ranges = seq.format('{ranges}')
+    displaypath = f'{seq.head}{num}{seq.tail} ({ranges})'
+    displayname = os.path.basename(displaypath)
+    return displayname
 def save_media_items(filepath=None):
     if not filepath:
         filepath = 'media-items.pickle'
@@ -148,6 +156,9 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
         if type == 'sequence':
             ob['framerate'] = sequence_framerate
+            ob['displayname'] = get_sequence_displayname(path)
+        else:
+            ob['displayname'] = ob['filename']
 
         media_update(id, **ob)
         probe_item(id)
