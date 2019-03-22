@@ -5,186 +5,24 @@ import random
 import pickle
 
 from PyQt5.QtWidgets import (
-        QMainWindow, QLabel, QGridLayout, QWidget, QApplication,
-        QAction, qApp, QFileDialog, QListWidget, QListWidgetItem,
-        QListView,
-        QStyledItemDelegate,
-        QStyle,
-        QStyleOptionProgressBar,
+        QMainWindow, QApplication,
+        QAction, qApp, QFileDialog,
         )
 from PyQt5.QtGui import (
-        QImage, QIcon, QFont, QStandardItemModel, QStandardItem,
-        QBrush,
-        QTextDocument,
+        QIcon,
         )
 from PyQt5.QtCore import (
-        QSize, QRect,
-        Qt, QVariant, QAbstractListModel, QPoint,
-        QModelIndex, QPersistentModelIndex,
+        QSize,
+        QPersistentModelIndex,
         QTimer,
         )
 
 from engine import create_engine
-from utils import format_size
+from medialist import MediaListView, MediaListModel
+
 
 ENGINE_POLL_INTERVAL = 200
 DEFAULT_SEQUENCE_FRAMERATE = (30, 1)
-
-
-def format_media_item(item):
-    filename = item.get('filename')
-    codec = item.get('codec')
-    pixfmt = item.get('pixfmt')
-    resolution = item.get('resolution')
-    duration = item.get('duration')
-    filesize = item.get('filesize')
-
-    html = []
-    if filename:
-        html.append(f'<b style="font-size: 13px;">{filename}</b><br>')
-
-    deets = []
-    if codec and pixfmt:
-        deets.append(f'Codec: {codec} ({pixfmt})')
-    if resolution:
-        deets.append(f'Resolution: {resolution[0]}x{resolution[1]}')
-    if duration:
-        deets.append(f'Duration: {duration:.02f}s')
-    if filesize:
-        deets.append(f'Size: {format_size(filesize)}')
-
-    if deets:
-        deets = '<br>'.join(deets)
-        html.append(f'<div style="font-style: italic; color: gray;">{deets}</div>')
-
-    return ''.join(html)
-
-
-class MyListModel(QAbstractListModel):
-    def __init__(self, parent=None):
-        QAbstractListModel.__init__(self, parent)
-        self._items = []
-
-    def rowCount(self, parent):
-        return len(self._items)
-
-    def data(self, index, role):
-        if not index.isValid():
-            return None
-
-        if role == Qt.DisplayRole:
-            row = index.row()
-            return (self._items[row])
-        else:
-            return None
-
-    def removeRows(self, row, count, index):
-        items = self._items
-        if row < 0 or (row + count) > len(items):
-            return False
-
-        self.beginRemoveRows(index, row, row+count-1)
-        self._items = items[:row] + items[row+count:]
-        self.endRemoveRows()
-        return True
-
-    def _find_row_with_id(self, id):
-        for row, item in enumerate(self._items):
-            if item['id'] == id:
-                return row
-        else:
-            return -1
-
-    def _update_item(self, data):
-        row = self._find_row_with_id(data['id'])
-        if row < 0:
-            # new item
-            item = data.copy()
-        else:
-            # update item
-            item = self._items[row]
-            item.update(data)
-
-        # (re-)create display data
-        item['_html'] = format_media_item(item)
-
-        if '_image' not in item:
-            image_data = item.get('thumbnail')
-            if image_data:
-                image = QImage()
-                image.loadFromData(image_data)
-                item['_image'] = image
-
-        # FIXME
-        item['_progress'] = random.random()
-
-        if row < 0:
-            row = len(self._items)
-            self.beginInsertRows(QModelIndex(), row, row)
-            self._items.append(item)
-            self.endInsertRows()
-        else:
-            index = self.index(row)
-            self.dataChanged.emit(index, index, [])
-
-
-class MyItemDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None):
-        QStyledItemDelegate.__init__(self, parent)
-
-    def paint(self, painter, option, index):
-        #print('paint', index)
-        painter.save()
-        #QStyledItemDelegate.paint(self, painter, option, index)
-
-        #painter.setPen(Qt.blue)
-        #painter.setFont(QFont('Arial', 30))
-        item = index.data()
-
-        html = item.get('_html')
-        if html:
-            doc = QTextDocument()
-            doc.setHtml(html)
-            painter.save()
-            painter.translate(option.rect.topLeft())
-            doc.drawContents(painter)
-            painter.restore()
-
-        image = item.get('_image')
-        if image and image.width() and image.height():  # XXX
-            rect = QRect(option.rect)
-            rect.adjust(0, 0, 0, -1)
-            aspect = float(image.width()) / image.height()
-            rect.setWidth(int(rect.height() * aspect))
-            rect.moveTopRight(option.rect.topRight())
-            painter.drawImage(rect, image)
-
-            progress = item.get('_progress', 0.0)
-            if progress > 0.0:
-                r = QRect(rect)
-                r.setHeight(25)
-                b = 2
-                r.adjust(b, b, -b, -b)
-
-                o = QStyleOptionProgressBar()
-                o.minimum = 0
-                o.maximum = 100
-                o.progress = round(100 * progress)
-                o.textAlignment = Qt.AlignCenter
-                o.text = f'{o.progress}%'
-                o.textVisible = True
-                o.rect = r
-                painter.setOpacity(0.75)
-                qApp.style().drawControl(QStyle.CE_ProgressBar, o, painter)
-
-        if (int(option.state) & QStyle.State_Selected) != 0:
-            painter.setCompositionMode(painter.CompositionMode_Multiply)
-            painter.fillRect(option.rect, option.palette.highlight())
-
-        painter.restore()
-
-    def sizeHint(self, option, index):
-        return QSize(128, 128)
 
 
 class MainWindow(QMainWindow):
@@ -272,19 +110,10 @@ class MainWindow(QMainWindow):
         print(filenames)
 
     def _init_listview(self):
-        view = QListView(self)
-        self.setCentralWidget(view)
-
-        model = MyListModel()
-        model._data = []
-        view.setModel(model)
-        view.setSelectionMode(QListView.SelectionMode.ExtendedSelection)
-
-        delegate = MyItemDelegate()
-        view.setItemDelegate(delegate)
-
-        self._view = view
-        self._model = model
+        self._model = MediaListModel()
+        self._view = MediaListView(self)
+        self._view.setModel(self._model)
+        self.setCentralWidget(self._view)
 
     def dragEnterEvent(self, e):
         print('dragEnter')
