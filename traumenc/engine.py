@@ -164,14 +164,26 @@ def probe_item(id):
     ob = json.loads(out)
     st = ob['streams'][0]
 
-    fr = Fraction(st['r_frame_rate'])
+    try:
+        fr = Fraction(st['r_frame_rate'])
+        framerate = (fr.numerator, fr.denominator)
+    except ZeroDivisionError:
+        print('ZERO_DIVIDE_ERROR:', st['r_frame_rate'])
+        framerate = (0, 0)
+
+    resolution = (
+        st.get('width', 0),
+        st.get('height', 0))
+
+    pixfmt = st.get('pix_fmt', 'unknown')
+    duration = st.get('duration', 0.0)
 
     media_update(id,
         codec=st['codec_name'],
-        resolution=(st['width'], st['height']),
-        framerate=(fr.numerator, fr.denominator),
-        pixfmt=st['pix_fmt'],
-        duration=float(st['duration']),
+        resolution=resolution,
+        framerate=framerate,
+        pixfmt=pixfmt,
+        duration=float(duration),
         )
 
     # filesize
@@ -203,8 +215,14 @@ def thumbnail_item(id, size=(-1, 256)):
             {outpath}
     '''
 
-    out = subprocess_exec(cmd, encoding=None)
-    media_update(id, thumbnail=out)
+    try:
+        out = subprocess_exec(cmd, encoding=None)
+        media_update(id, thumbnail=out)
+
+    except subprocess.CalledProcessError as e:
+        print('FAILED TO THUMBNAIL:', inspec, e.returncode)
+        print(e.cmd)
+        print(e.output)
 
     #f = io.BytesIO(out)
     #img = Image.open(f)
