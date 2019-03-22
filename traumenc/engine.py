@@ -96,26 +96,35 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
     video_exts = {'avi', 'mov', 'mp4', 'm4v', 'mkv', 'webm'}
     image_exts = {'png', 'tif', 'tiff', 'jpg', 'jpeg', 'dpx', 'exr'}
 
-    # XXX should these be sets? might need to dedup after
     videos = []
-    sequences = []
+    images = []
 
-    for path in paths:
+    def add_file(filepath):
+        _, ext = os.path.splitext(filepath)
+        if not ext or ext[0] != '.':
+            return
+
+        ext = ext[1:].lower()
+        if ext in video_exts:
+            videos.append(filepath)
+        elif ext in image_exts:
+            images.append(filepath)
+
+    def add_dir(dirpath):
         for dirpath, _, filenames in os.walk(path, followlinks=True):
-            images = []
             for filename in filenames:
                 filepath = os.path.join(dirpath, filename)
-                _, ext = os.path.splitext(filename)
-                if not ext or ext[0] != '.':
-                    continue
-                ext = ext[1:].lower()
-                if ext in video_exts:
-                    videos.append(filepath)
-                elif ext in image_exts:
-                    images.append(filepath)
-            if images:
-                seqs, _ = clique.assemble(images)
-                sequences.extend(seqs)
+                add_file(filepath)
+
+    # scan paths
+    for path in paths:
+        if os.path.isfile(path):
+            add_file(path)
+        elif os.path.isdir(path):
+            add_dir(path)
+
+    # assemble image sequences
+    sequences, _ = clique.assemble(images)
 
     def add_item(type, path):
         path = os.path.abspath(path)
@@ -146,7 +155,6 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
         add_item('sequence', path)
 
     #save_media_items()
-
     if engine_conn:
         engine_conn.send((
             'scan_complete'))
