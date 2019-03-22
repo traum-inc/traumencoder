@@ -156,16 +156,21 @@ class MainWindow(QMainWindow):
             if not msg:
                 return
 
-            if msg[0] == 'media_update':
-                id = msg[1]
-                data = msg[2]
-                data['id'] = id
-                print(msg[0], id, data.keys())
-                self._model._update_item(data)
+            event, args = msg[0], msg[1:]
+            try:
+                handler = getattr(self, f'_on_engine_{event}')
+                handler(*args)
+            except AttributeError:
+                print('UNHANDLED ENGINE EVENT:', event, args)
 
-            elif msg[0] == 'scan_complete':
-                print('SCAN_COMPLETE')
-                self._status('Scan complete')
+    def _on_engine_media_update(self, id, data):
+        data['id'] = id
+        print('media_update', id, data.keys())
+        self._model._update_item(data)
+
+    def _on_engine_scan_complete(self):
+        print('SCAN_COMPLETE')
+        self._status('Scan complete')
 
 
 if __name__ == '__main__':

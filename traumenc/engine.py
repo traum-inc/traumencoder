@@ -157,7 +157,7 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
     #save_media_items()
     if engine_conn:
         engine_conn.send((
-            'scan_complete'))
+            'scan_complete',))
 
 def probe_item(id):
     item = media_lookup(id)
