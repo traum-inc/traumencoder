@@ -125,13 +125,7 @@ class MainWindow(QMainWindow):
         paths = []
         for url in e.mimeData().urls():
             if url.isLocalFile():
-                print(url.toLocalFile())
                 paths.append(url.toLocalFile())
-
-        # print(f'''
-        #     mime-data: {e.mimeData().formats()}
-        #     urls: {e.mimeData().urls()}
-        # ''')
 
         self._start_scan(paths)
 

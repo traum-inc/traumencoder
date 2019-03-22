@@ -12,7 +12,11 @@ import subprocess
 import multiprocessing
 from fractions import Fraction
 
+import logging
+log = logging.getLogger('engine.proxy')
 
+
+# connection to client
 engine_conn = None
 
 # the media database: all active media objects
@@ -34,13 +38,17 @@ media_item_template = {
 
 def media_update(id, **kwargs):
     item = media_lookup(id)
+    cached = False
+
     if not item:
-        print('new item', id)
         item = dict(id=id, **kwargs)
         media_items[id] = item
     else:
-        print('old item', id)
+        cached = True
         item.update(**kwargs)
+
+    keys = ",".join(kwargs.keys())
+    log.debug(f'media_update: cached {id} ({keys})')
 
     # send out
     if engine_conn:
@@ -65,8 +73,6 @@ def get_ff_input_spec(item):
         start = list(seq.indexes)[0]
         sequence_framerate = ':'.join(str(x) for x in item['framerate'])
         inputspec = f'-i "{seqpath}" -framerate {sequence_framerate} -start_number {start}'
-        #print('SEQ_framerate:', item['framerate'])
-        #print('SEQ_framerate:', sequence_framerate)
     elif item['type'] == 'video':
         filepath = item['path']
         inputspec = f'-i "{filepath}"'
@@ -78,9 +84,11 @@ def calc_media_id(ob):
     m.update(data)
     return m.hexdigest()[:8]
 
-def save_media_items():
-    print('SAVING MEDIA ITEMS')
-    with open('media-items.pickle', 'wb') as f:
+def save_media_items(filepath=None):
+    if not filepath:
+        filepath = 'media-items.pickle'
+    log.info(f'saving media items to {filepath}')
+    with open(filepath, 'wb') as f:
         pickle.dump(media_items, f, pickle.HIGHEST_PROTOCOL)
 
 def subprocess_exec(cmd, encoding='utf8'):
@@ -139,7 +147,6 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
             )
 
         if type == 'sequence':
-            print('SF:', sequence_framerate)
             ob['framerate'] = sequence_framerate
 
         media_update(id, **ob)
@@ -176,7 +183,6 @@ def probe_item(id):
         fr = Fraction(st['r_frame_rate'])
         framerate = (fr.numerator, fr.denominator)
     except ZeroDivisionError:
-        print('ZERO_DIVIDE_ERROR:', st['r_frame_rate'])
         framerate = (0, 0)
 
     resolution = (
@@ -228,9 +234,9 @@ def thumbnail_item(id, size=(-1, 256)):
         media_update(id, thumbnail=out)
 
     except subprocess.CalledProcessError as e:
-        print('FAILED TO THUMBNAIL:', inspec, e.returncode)
-        print(e.cmd)
-        print(e.output)
+        log.warn('thumbnail failed:', inspec)
+        #print(e.cmd)
+        #print(e.output)
 
     #f = io.BytesIO(out)
     #img = Image.open(f)
@@ -258,7 +264,6 @@ def encode_item(id, outpath):
     re_time = re.compile(r'(\d{2}.\d{2}|\d{2}) fps')
 
     def get_time_from_match(m):
-        #print('GROUPS:', m.groups())
         bits = [float(x) for x in m.groups()]
         #print('BITS:', bits)
         secs = 3600.0*bits[0] + 60.0*bits[1] + 1.0*bits[2] + 0.01*bits[3]
@@ -308,7 +313,7 @@ def encode_item(id, outpath):
         line.append(ch)
 
     args = shlex.split(cmd)
-    print(' '.join(args))
+    #print(' '.join(args))
 
     proc = subprocess.Popen(args, bufsize=0, stderr=subprocess.PIPE)
     t0 = time.time()
@@ -340,17 +345,24 @@ def start_engine(conn):
     global engine_conn
     engine_conn = conn
 
-    print('start_engine')
+    global log
+    log = logging.getLogger('engine.child')
+
+    def format_kwargs(kwargs):
+        return ' '.join(
+            f'{k}={v}' for k,v in kwargs.items())
+
+    log.debug('start_engine')
     while True:
         msg = conn.recv()
         cmd = msg['command']
         kwargs = msg['kwargs']
-        print('GOT MSG:', msg)
+        log.debug(f'received: {cmd} {format_kwargs(kwargs)}')
         if cmd == 'scan_paths':
             scan_paths(**kwargs)
         elif cmd == 'join':
             break
-    print('start_engine: exit')
+    log.debug('start_engine: exit')
 
 # client
 class EngineProxy(object):
@@ -375,7 +387,7 @@ class EngineProxy(object):
         self._conn.send({ 'command': name, 'kwargs': kwargs })
 
 def create_engine():
-    print('create_engine')
+    log.debug('create_engine')
     conn, conn_child = multiprocessing.Pipe()
     proc = multiprocessing.Process(target=start_engine, args=(conn_child,))
     proc.start()
