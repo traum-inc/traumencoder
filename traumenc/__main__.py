@@ -203,47 +203,58 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self._status('Ready')
 
-        action = QAction(QIcon('icons/exit.png'), '&Exit', self)
-        action.setShortcut('Ctrl+Q')
-        action.setStatusTip('Exit application')
-        action.triggered.connect(qApp.quit)
+        def make_action(text, icon, tip=None, key=None, handler=None):
+            action = QAction(QIcon(f'icons/{icon}.png'), text, self)
+            if key:
+                action.setShortcut(key)
+            if tip:
+                action.setStatusTip(tip)
+            if handler:
+                action.triggered.connect(handler)
+            return action
 
-        action2 = QAction(QIcon('icons/import.png'), '&Import', self)
-        action2.setShortcut('Ctrl+I')
-        action2.setStatusTip('Import media')
-        action2.triggered.connect(self.import_media)
+        action_quit = make_action(
+            text='&Exit',
+            icon='exit',
+            tip='Exit application',
+            key='Ctrl+Q',
+            handler=qApp.quit)
 
-        action3 = QAction(QIcon('icons/trash.png'), '&Delete', self)
-        action3.setShortcut('Delete')
-        action3.setStatusTip('Delete selection')
-        action3.triggered.connect(self.delete_selection)
+        action_import = make_action(
+            text='&Import',
+            icon='import',
+            tip='Import media',
+            key='Ctrl+I',
+            handler=self._import_media)
 
-        action4 = QAction(QIcon('icons/gears.png'), '&Encode', self)
-        action4.setShortcut('Ctrl+E')
-        action4.setStatusTip('Encode all/selection')
-        action4.triggered.connect(self.encode_selection)
+        action_delete = make_action(
+            text='&Delete',
+            icon='trash',
+            tip='Delete selection',
+            handler=self._delete_selection)
+
+        action_encode = make_action(
+            text='&Encode',
+            icon='gears',
+            tip='Encode selection or all',
+            key='Ctrl+E',
+            handler=self._encode_selection)
 
         menubar = self.menuBar()
         menu = menubar.addMenu('&File')
-        menu.addAction(action2)
-        menu.addAction(action)
+        menu.addAction(action_import)
+        menu.addAction(action_quit)
 
         toolbar = self.addToolBar('Exit')
-        toolbar.addAction(action)
-        toolbar.addAction(action2)
-        toolbar.addAction(action3)
-        toolbar.addAction(action4)
+        for action in [action_quit, action_import, action_delete, action_encode]:
+            toolbar.addAction(action)
 
         self._init_listview()
 
-    def encode_selection(self):
+    def _encode_selection(self):
         print('ENCODE')
-        #timer = QTimer(self)
-        #timer.timeout.connect(self._on_timeout)
-        ##timer.setInterval(200)
-        #timer.start()
 
-    def delete_selection(self):
+    def _delete_selection(self):
         sel = self._view.selectionModel()
         idxs = [QPersistentModelIndex(idx) for idx in sel.selectedIndexes()]
         for idx in idxs:
@@ -251,6 +262,14 @@ class MainWindow(QMainWindow):
         idxs = None
         sel.clear()
         pass
+
+    def _import_media(self):
+        #url = QFileDialog.getExistingDirectoryUrl(self, 'Import media')
+        filenames, _ = QFileDialog.getOpenFileNames(
+                self,
+                'Import movies',
+                filter='Movies (*.mov *.avi *.mp4 *.m4v *.webm)')
+        print(filenames)
 
     def _init_listview(self):
         view = QListView(self)
@@ -266,14 +285,6 @@ class MainWindow(QMainWindow):
 
         self._view = view
         self._model = model
-
-    def import_media(self):
-        #url = QFileDialog.getExistingDirectoryUrl(self, 'Import media')
-        filenames, _ = QFileDialog.getOpenFileNames(
-                self,
-                'Import movies',
-                filter='Movies (*.mov *.avi *.mp4 *.m4v *.webm)')
-        print(filenames)
 
     def dragEnterEvent(self, e):
         print('dragEnter')
