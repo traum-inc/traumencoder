@@ -19,7 +19,11 @@ from PyQt5.QtCore import (
 
 from engine import create_engine
 from medialist import MediaListView, MediaListModel
+from utils import setup_logging
+import logging
 
+setup_logging(color=True)
+log = logging.getLogger('app')
 
 ENGINE_POLL_INTERVAL = 200
 DEFAULT_SEQUENCE_FRAMERATE = (30, 1)
@@ -90,7 +94,7 @@ class MainWindow(QMainWindow):
         self._init_listview()
 
     def _encode_selection(self):
-        print('ENCODE')
+        log.info('encode selection')
 
     def _delete_selection(self):
         sel = self._view.selectionModel()
@@ -99,7 +103,6 @@ class MainWindow(QMainWindow):
             self._model.removeRow(idx.row())
         idxs = None
         sel.clear()
-        pass
 
     def _import_media(self):
         #url = QFileDialog.getExistingDirectoryUrl(self, 'Import media')
@@ -107,7 +110,7 @@ class MainWindow(QMainWindow):
                 self,
                 'Import movies',
                 filter='Movies (*.mov *.avi *.mp4 *.m4v *.webm)')
-        print(filenames)
+        log.info(f'import: {filenames}')
 
     def _init_listview(self):
         self._model = MediaListModel()
@@ -116,21 +119,19 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._view)
 
     def dragEnterEvent(self, e):
-        print('dragEnter')
         e.accept()
 
     def dropEvent(self, e):
-        print('drop')
         paths = []
         for url in e.mimeData().urls():
             if url.isLocalFile():
                 print(url.toLocalFile())
                 paths.append(url.toLocalFile())
 
-        print(f'''
-            mime-data: {e.mimeData().formats()}
-            urls: {e.mimeData().urls()}
-        ''')
+        # print(f'''
+        #     mime-data: {e.mimeData().formats()}
+        #     urls: {e.mimeData().urls()}
+        # ''')
 
         self._start_scan(paths)
 
@@ -161,15 +162,15 @@ class MainWindow(QMainWindow):
                 handler = getattr(self, f'_on_engine_{event}')
                 handler(*args)
             except AttributeError:
-                print('UNHANDLED ENGINE EVENT:', event, args)
+                log.warn(f'unhandled engine event: {event} {args}')
 
     def _on_engine_media_update(self, id, data):
+        log.debug(f'media_update {id} ({",".join(data.keys())})')
         data['id'] = id
-        print('media_update', id, data.keys())
         self._model._update_item(data)
 
     def _on_engine_scan_complete(self):
-        print('SCAN_COMPLETE')
+        log.debug('scan_complete')
         self._status('Scan complete')
 
 
@@ -177,6 +178,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     # start the engine
+    log.debug('starting engine')
     engine = create_engine()
 
     # create my widgets
@@ -187,6 +189,7 @@ if __name__ == '__main__':
     rc = app.exec_()
 
     # stop the engine
+    log.debug('joining engine')
     engine.join()
 
     # quit
