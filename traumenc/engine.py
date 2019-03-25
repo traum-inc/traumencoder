@@ -320,6 +320,7 @@ def encode_item(id, outpath=None):
     #progress_bar = tqdm(total=100)
 
     line = []
+    output = []
     def on_stderr(ch):
         nonlocal line
         nonlocal duration_secs
@@ -328,6 +329,7 @@ def encode_item(id, outpath=None):
 
         if ch in '\r\n':
             line = ''.join(line).strip()
+            output.append(line)
             #print(line)
 
             m = re_duration.search(line)
@@ -379,7 +381,11 @@ def encode_item(id, outpath=None):
             break
         """
 
-    proc.wait()
+    rc = proc.wait()
+    if rc != 0:
+        log.error(f'bad returncode: {rc}')
+        log.error('\n'.join(output)) # last line
+
     # FIXME catch errors
     media_update(id, progress=1.0, state='done')
 
