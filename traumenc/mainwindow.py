@@ -97,6 +97,21 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        toolbar.addWidget(spacer)
+
+        combo = QComboBox()
+        framerates = ['23.98', '24', '25', '30', '60']
+        for framerate in framerates:
+            label = f'{framerate} fps'
+            combo.addItem(label, userData=framerate)
+        combo.setCurrentIndex(framerates.index('30'))
+
+        #toolbar.addWidget(QLabel('Rate:'))
+        toolbar.addWidget(combo)
+
+
         combo = QComboBox()
         profile_ids = list(encoding_profiles)
         for profile_id in profile_ids:
@@ -104,13 +119,9 @@ class MainWindow(QMainWindow):
             combo.addItem(profile['label'], userData=id)
         combo.setCurrentIndex(profile_ids.index('prores_422'))
 
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        toolbar.addWidget(spacer)
-
-        #label = QLabel('Profile:')
-        #toolbar.addWidget(label)
+        #toolbar.addWidget(QLabel('Profile:'))
         toolbar.addWidget(combo)
+
         toolbar.addAction(action_encode)
 
         toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
