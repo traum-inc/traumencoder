@@ -202,6 +202,13 @@ class MainWindow(QMainWindow):
         self._view = MediaListView(self)
         self._view.setModel(self._model)
         self.setCentralWidget(self._view)
+        self._view.doubleClicked.connect(self._preview_item)
+
+    def _preview_item(self, idx):
+        media_id = self._model.get_media_id_for_index(idx)
+        log.info(f'preview item {media_id}')
+        framerate = self._combo_framerate.currentData()
+        self._engine.preview_item(media_id, framerate)
 
     def dragEnterEvent(self, e):
         e.accept()

@@ -121,7 +121,9 @@ def save_media_items(filepath=None):
         pickle.dump(media_items, f, pickle.HIGHEST_PROTOCOL)
 
 def subprocess_exec(cmd, encoding='utf8'):
-    cmd = re.sub('\s+', ' ', cmd)
+    # XXX this is gonna fail if filenames have multiple spaces. necessary?
+    #cmd = re.sub('\s+', ' ', cmd)
+
     cmd = cmd.strip()
     args = shlex.split(cmd)
     proc = subprocess.run(args, capture_output=True, encoding=encoding)
@@ -386,6 +388,24 @@ def remove_items(ids):
         media_delete(id)
 
 
+def preview_item(id, framerate=None):
+    item = media_lookup(id)
+    if not item:
+        return
+
+    if framerate:
+        framerate = framerates[framerate]['rate']
+
+    inspec = get_ff_input_spec(item, framerate)
+
+    cmd = f'ffplay {inspec}'
+    args = shlex.split(cmd)
+
+    # spawn, don't wait
+    log.info(f'spawning: {cmd}')
+    proc = subprocess.Popen(args)
+    log.info(f'pid={proc.pid}')
+
 def encode_items(ids, profile, framerate):
     encode_queue = []
 
@@ -531,6 +551,8 @@ def dispatch_client_request(cmd, args):
         remove_items(**args)
     elif cmd == 'cancel_scan':
         cancel_scan()
+    elif cmd == 'preview_item':
+        preview_item(**args)
     elif cmd == 'join':
         cancel_scan()
         cancel_encode()
@@ -588,6 +610,9 @@ class EngineProxy(object):
 
     def remove_items(self, ids):
         self._send_command('remove_items', ids=ids)
+
+    def preview_item(self, id, framerate):
+        self._send_command('preview_item', id=id, framerate=framerate)
 
     def join(self):
         self._send_command('join')
