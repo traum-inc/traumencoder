@@ -394,12 +394,12 @@ def encode_item(id, outpath=None):
         """
 
     rc = proc.wait()
-    if rc != 0:
+    if rc == 0:
+        media_update(id, progress=1.0, state='done')
+    else:
         log.error(f'bad returncode: {rc}')
         log.error('\n'.join(output)) # last line
-
-    # FIXME catch errors
-    media_update(id, progress=1.0, state='done')
+        media_update(id, progress=0.0, state='error')
 
 def start_engine(conn):
     global engine_conn
