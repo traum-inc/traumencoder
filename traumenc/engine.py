@@ -56,7 +56,7 @@ def media_update(id, **kwargs):
         item.update(**kwargs)
 
     keys = ",".join(kwargs.keys())
-    log.debug(f'media_update: cached {id} ({keys})')
+    #log.debug(f'media_update: cached {id} ({keys})')
 
     # send out
     send_to_client('media_update', id, kwargs)
@@ -129,7 +129,28 @@ def subprocess_exec(cmd, encoding='utf8'):
     return proc.stdout
 
 
+scan_paths_queue = []
+scan_cancelled = False
+
+def cancel_scan():
+    global scan_cancelled
+    scan_cancelled = True
+
+def cancel_encode():
+    # TODO
+    pass
+
 def scan_paths(paths=[], sequence_framerate=(30,1)):
+    scan_in_progress = len(scan_paths_queue) > 0
+    scan_paths_queue.extend(paths)
+    if scan_in_progress:
+        # called from a poll_client()
+        return
+
+    # reset the cancel event
+    global scan_cancelled
+    scan_cancelled = False
+
     video_exts = {'avi', 'mov', 'mp4', 'm4v', 'mkv', 'webm'}
     image_exts = {'png', 'tif', 'tiff', 'jpg', 'jpeg', 'dpx', 'exr'}
 
@@ -155,6 +176,13 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
         add_videos_and_sequences()
 
+        # poll for cancel etc...
+        poll_client()
+
+        if scan_cancelled:
+            # remove all queued paths
+            scan_paths_queue.clear()
+
     def add_file(filepath):
         scan_update(0, 1)
 
@@ -170,11 +198,15 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
     def add_dir(dirpath):
         for dirpath, _, filenames in os.walk(path, followlinks=True):
-            #log.debug(f'scan dir: {dirpath}')
+            log.debug(f'scan dir: {dirpath}')
             scan_update(1, 0)
             for filename in filenames:
                 filepath = os.path.join(dirpath, filename)
                 add_file(filepath)
+
+                # check for cancellation
+                if scan_cancelled:
+                    return
 
     def add_item(type, path):
         path = os.path.abspath(path)
@@ -196,9 +228,15 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
             ob['displayname'] = ob['filename']
 
         media_update(id, **ob)
-        probe_item(id)
-        thumbnail_item(id)
-        media_update(id, state='ready')
+
+        #log.info(f'SCAN_CANCELLED={scan_cancelled}')
+        if not scan_cancelled:
+            probe_item(id)
+            thumbnail_item(id)
+            media_update(id, state='ready')
+
+            # poll here too...
+            poll_client()
 
     def add_videos_and_sequences():
         nonlocal videos
@@ -218,13 +256,19 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
         sequences = []
 
     def assemble_sequences():
-        seqs, _ = clique.assemble(images, minimum_items=config.CLIQUE_MINIMUM_ITEMS)
-        if config.CLIQUE_CONTIGUOUS_ONLY:
-            seqs = [s for s in seqs if s.is_contiguous()]
-        sequences.extend(seqs)
+        if images:
+            start_time = time.time()
+            log.debug(f'assembling sequences from {len(images)} images...')
+            seqs, _ = clique.assemble(images, minimum_items=config.CLIQUE_MINIMUM_ITEMS)
+            if config.CLIQUE_CONTIGUOUS_ONLY:
+                seqs = [s for s in seqs if s.is_contiguous()]
+            sequences.extend(seqs)
+            elapsed = time.time() - start_time
+            log.debug(f'assembling sequences done ({elapsed:.2f} seconds)')
 
     # scan paths
-    for path in paths:
+    while scan_paths_queue:
+        path = scan_paths_queue.pop(0)
         if os.path.isfile(path):
             add_file(path)
         elif os.path.isdir(path):
@@ -234,8 +278,22 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
     # add remaining videos and sequences
     add_videos_and_sequences()
 
-    #save_media_items()
-    send_to_client('scan_complete')
+    # clean up and cancellation mess
+    if scan_cancelled:
+        send_to_client('scan_cancelled')
+        scan_cancelled = False
+
+        # find and remove unprocessed media items
+        remove_ids = []
+        for id, item in media_items.items():
+            if item['state'] == 'new':
+                remove_ids.append(id)
+
+        for id in remove_ids:
+            log.info(f'REMOVING NEW ITEM: {id}')
+            media_delete(id)
+    else:
+        send_to_client('scan_complete')
 
 def probe_item(id):
     item = media_lookup(id)
@@ -460,6 +518,46 @@ def encode_item(id, profile, framerate=None, outpath=None):
         log.error('\n'.join(output)) # last line
         media_update(id, progress=0.0, state='error')
 
+client_wants_to_join = False
+
+def dispatch_client_request(cmd, args):
+    global join_requested
+
+    if cmd == 'scan_paths':
+        scan_paths(**args)
+    elif cmd == 'encode_items':
+        encode_items(**args)
+    elif cmd == 'remove_items':
+        remove_items(**args)
+    elif cmd == 'cancel_scan':
+        cancel_scan()
+    elif cmd == 'join':
+        cancel_scan()
+        cancel_encode()
+
+        global client_wants_to_join
+        client_wants_to_join = True
+
+def receive_and_dispatch_next_client_request(block=True):
+    if not (block or engine_conn.poll()):
+        return False
+
+    msg = engine_conn.recv()
+    cmd = msg['command']
+    args = msg['kwargs']
+
+    def format_kwargs(kwargs):
+        return ' '.join(
+            f'{k}={v}' for k,v in kwargs.items())
+
+    log.debug(f'received: {cmd} {format_kwargs(args)}')
+    dispatch_client_request(cmd, args)
+    return True
+
+def poll_client():
+    while receive_and_dispatch_next_client_request(False):
+        pass
+
 def start_engine(conn):
     global engine_conn
     engine_conn = conn
@@ -467,24 +565,10 @@ def start_engine(conn):
     global log
     log = logging.getLogger('engine.child')
 
-    def format_kwargs(kwargs):
-        return ' '.join(
-            f'{k}={v}' for k,v in kwargs.items())
-
     log.debug('start_engine')
-    while True:
-        msg = conn.recv()
-        cmd = msg['command']
-        kwargs = msg['kwargs']
-        log.debug(f'received: {cmd} {format_kwargs(kwargs)}')
-        if cmd == 'scan_paths':
-            scan_paths(**kwargs)
-        elif cmd == 'encode_items':
-            encode_items(**kwargs)
-        elif cmd == 'remove_items':
-            remove_items(**kwargs)
-        elif cmd == 'join':
-            break
+    while not client_wants_to_join:
+        receive_and_dispatch_next_client_request()
+
     log.debug('start_engine: exit')
 
 # client
@@ -495,6 +579,9 @@ class EngineProxy(object):
 
     def scan_paths(self, paths, sequence_framerate=(30,1)):
         self._send_command('scan_paths', paths=paths, sequence_framerate=sequence_framerate)
+
+    def cancel_scan(self):
+        self._send_command('cancel_scan')
 
     def encode_items(self, ids, profile='prores_422', framerate='fps_30'):
         self._send_command('encode_items', ids=ids, profile=profile, framerate=framerate)

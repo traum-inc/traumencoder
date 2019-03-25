@@ -25,6 +25,7 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self)
         self._init_engine(engine)
         self._init_ui()
+        self._is_scanning = False
 
     def _status(self, message):
         self.statusBar().showMessage(message)
@@ -67,6 +68,13 @@ class MainWindow(QMainWindow):
             key='Ctrl+I',
             handler=self._import_media_folder)
 
+        action_cancel_scan = make_action(
+            text='&Stop Scan',
+            icon='exit',
+            tip='Stop scanning folders',
+            handler=self._cancel_scan)
+        self._action_cancel_scan = action_cancel_scan
+
         action_delete = make_action(
             text='&Delete',
             icon='trash',
@@ -86,6 +94,7 @@ class MainWindow(QMainWindow):
         menu = menubar.addMenu('&File')
         menu.addAction(action_import_videos)
         menu.addAction(action_import_folder)
+        menu.addSeparator()
         menu.addAction(action_quit)
 
         menu = menubar.addMenu('&Edit')
@@ -94,6 +103,9 @@ class MainWindow(QMainWindow):
         toolbar = self.addToolBar('Exit')
         for action in [action_import_videos, action_import_folder]:
             toolbar.addAction(action)
+        toolbar.addSeparator()
+        action_cancel_scan.setEnabled(False)
+        toolbar.addAction(action_cancel_scan)
 
         toolbar.addSeparator()
 
@@ -180,6 +192,11 @@ class MainWindow(QMainWindow):
         if dirpath:
             self._start_scan([dirpath])
 
+    def _cancel_scan(self):
+        if self._is_scanning:
+            log.info('cancelling scan')
+            self._engine.cancel_scan()
+
     def _init_listview(self):
         self._model = MediaListModel()
         self._view = MediaListView(self)
@@ -204,6 +221,8 @@ class MainWindow(QMainWindow):
         self._status('Scanning...')
         self._engine.scan_paths(paths,
                 sequence_framerate=config.DEFAULT_SEQUENCE_FRAMERATE)
+        self._is_scanning = True
+        self._action_cancel_scan.setEnabled(True)
 
     def _init_engine(self, engine):
         self._engine = engine
@@ -233,7 +252,7 @@ class MainWindow(QMainWindow):
             log.warn(f'unhandled engine event: {event} {args}')
 
     def _on_engine_media_update(self, id, data):
-        log.debug(f'media_update {id} ({",".join(data.keys())})')
+        #log.debug(f'media_update {id} ({",".join(data.keys())})')
         data['id'] = id
         self._model._update_item(data)
 
@@ -248,4 +267,12 @@ class MainWindow(QMainWindow):
     def _on_engine_scan_complete(self):
         log.debug('scan_complete')
         self._status('Scan complete')
+        self._is_scanning = False
+        self._action_cancel_scan.setEnabled(False)
+
+    def _on_engine_scan_cancelled(self):
+        log.debug('scan_cancelled')
+        self._status('Scan cancelled')
+        self._is_scanning = False
+        self._action_cancel_scan.setEnabled(False)
 
