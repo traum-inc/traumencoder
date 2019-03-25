@@ -180,6 +180,9 @@ class MainWindow(QMainWindow):
             action.setText('Encode')
 
     def _encode_selection(self):
+        if self._is_scanning:
+            return
+
         media_ids = self._get_selected_media_ids(True)
         profile = self._combo_profile.currentData()
         framerate = self._combo_framerate.currentData()
@@ -249,6 +252,9 @@ class MainWindow(QMainWindow):
         self._start_scan(paths)
 
     def _start_scan(self, paths):
+        if self._is_encoding:
+            return
+
         if not paths:
             return
 

@@ -127,7 +127,7 @@ def subprocess_exec(cmd, encoding='utf8'):
 
     cmd = cmd.strip()
     args = shlex.split(cmd)
-    log.debug(f'exec: {" ".join(args)}')
+    program.debug(f'exec: {" ".join(args)}')
     proc = subprocess.run(args, capture_output=True, encoding=encoding)
     proc.check_returncode()
     return proc.stdout
@@ -135,7 +135,9 @@ def subprocess_exec(cmd, encoding='utf8'):
 def get_ffmpeg_bin(name):
     if platform.system() == 'Windows':
         bin_dir = os.path.abspath(os.path.join(os.curdir, 'bin'))
-        return os.path.join(bin_dir, f'{name}.exe')
+        bin_path = os.path.join(bin_dir, f'{name}.exe')
+        # return quoted path or shlex will destroy it
+        return f'"{bin_path}"'
     else:
         # assume in user's path
         return name
