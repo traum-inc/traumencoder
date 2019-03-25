@@ -127,6 +127,7 @@ def subprocess_exec(cmd, encoding='utf8'):
 
     cmd = cmd.strip()
     args = shlex.split(cmd)
+    log.debug(f'exec: {" ".join(args)}')
     proc = subprocess.run(args, capture_output=True, encoding=encoding)
     proc.check_returncode()
     return proc.stdout
