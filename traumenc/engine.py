@@ -138,10 +138,6 @@ def cancel_scan():
     global scan_cancelled
     scan_cancelled = True
 
-def cancel_encode():
-    # TODO
-    pass
-
 def scan_paths(paths=[], sequence_framerate=(30,1)):
     scan_in_progress = len(scan_paths_queue) > 0
     scan_paths_queue.extend(paths)
@@ -406,16 +402,46 @@ def preview_item(id, framerate=None):
     proc = subprocess.Popen(args)
     log.info(f'pid={proc.pid}')
 
+
+encode_cancelled = False
+
+def cancel_encode():
+    log.debug('cancel_encode')
+    global encode_cancelled
+    encode_cancelled = True
+
 def encode_items(ids, profile, framerate):
+    global encode_cancelled
+    if encode_cancelled:
+        # don't add more to the queue on re-entry
+        return
+
     encode_queue = []
+
+    if not ids:
+        # no selection provided: add anything that's ready
+        ids = [id for id in media_items.keys() if media_lookup(id)['state'] == 'ready']
 
     for id in ids:
         media_update(id, state='queued')
         encode_queue.append((id, profile, framerate))
 
     while encode_queue:
+        if encode_cancelled:
+            break
+
         id, profile, framerate = encode_queue.pop(0)
         encode_item(id, profile, framerate)
+
+    if encode_cancelled:
+        # queue -> ready
+        for id, profile, framerate in encode_queue:
+            media_update(id, state='ready')
+
+        send_to_client('encode_cancelled')
+        encode_cancelled = False    # reset
+    else:
+        send_to_client('encode_complete')
 
 
 def encode_item(id, profile, framerate=None, outpath=None):
@@ -506,6 +532,9 @@ def encode_item(id, profile, framerate=None, outpath=None):
                     log.debug(f'encode_item: {id} {progress_percent}%')
                     media_update(id, progress=progress)
 
+                    # poll client here too...
+                    poll_client()
+
             line = []
         line.append(ch)
 
@@ -520,19 +549,23 @@ def encode_item(id, profile, framerate=None, outpath=None):
         ch = proc.stderr.read(1)
         if not ch:
             break
+
+        if encode_cancelled:
+            break
+
         ch = str(ch, encoding='utf8')
         on_stderr(ch)
         dt = time.time() - t0
-        """
-        if dt > 2.0:
-            print('-- KILLING --')
-            proc.kill()
-            break
-        """
+
+    if encode_cancelled:
+        log.warn(f'encode cancelled: killing proc {proc.pid}')
+        proc.kill()
 
     rc = proc.wait()
     if rc == 0:
         media_update(id, progress=1.0, state='done')
+    elif encode_cancelled:
+        media_update(id, progress=0.0, state='ready')
     else:
         log.error(f'bad returncode: {rc}')
         log.error('\n'.join(output)) # last line
@@ -547,6 +580,8 @@ def dispatch_client_request(cmd, args):
         scan_paths(**args)
     elif cmd == 'encode_items':
         encode_items(**args)
+    elif cmd == 'cancel_encode':
+        cancel_encode()
     elif cmd == 'remove_items':
         remove_items(**args)
     elif cmd == 'cancel_scan':
@@ -607,6 +642,9 @@ class EngineProxy(object):
 
     def encode_items(self, ids, profile='prores_422', framerate='fps_30'):
         self._send_command('encode_items', ids=ids, profile=profile, framerate=framerate)
+
+    def cancel_encode(self):
+        self._send_command('cancel_encode')
 
     def remove_items(self, ids):
         self._send_command('remove_items', ids=ids)

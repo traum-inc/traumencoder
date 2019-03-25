@@ -20,12 +20,21 @@ import config
 log = logging.getLogger('app')
 
 
+icon_cache = {}
+def get_icon(name):
+    if name not in icon_cache:
+        filename = f'icons/{name}.png'
+        icon_cache[name] = QIcon(filename)
+    return icon_cache[name]
+
+
 class MainWindow(QMainWindow):
     def __init__(self, engine):
         QMainWindow.__init__(self)
         self._init_engine(engine)
         self._init_ui()
         self._is_scanning = False
+        self._is_encoding = False
 
     def _status(self, message):
         self.statusBar().showMessage(message)
@@ -38,7 +47,7 @@ class MainWindow(QMainWindow):
         self._status('Ready')
 
         def make_action(text, icon, tip=None, key=None, handler=None):
-            action = QAction(QIcon(f'icons/{icon}.png'), text, self)
+            action = QAction(get_icon(icon), text, self)
             if key:
                 action.setShortcut(key)
             if tip:
@@ -87,7 +96,8 @@ class MainWindow(QMainWindow):
             icon='gears',
             tip='Encode selection or all',
             key='Ctrl+E',
-            handler=self._encode_selection)
+            handler=self._encode_or_cancel)
+        self._action_encode = action_encode
 
         menubar = self.menuBar()
 
@@ -151,15 +161,32 @@ class MainWindow(QMainWindow):
             sel.clear()
         return media_ids
 
+    def _encode_or_cancel(self):
+        if self._is_encoding:
+            log.debug('cancelling encode')
+            self._engine.cancel_encode()
+        else:
+            if self._encode_selection():
+                self._set_encoding_state(True)
+
+    def _set_encoding_state(self, encoding):
+        self._is_encoding = encoding
+        action = self._action_encode
+        if encoding:
+            action.setIcon(get_icon('exit'))
+            action.setText('Cancel')
+        else:
+            action.setIcon(get_icon('gears'))
+            action.setText('Encode')
+
     def _encode_selection(self):
         media_ids = self._get_selected_media_ids(True)
-        #if not media_ids: return
-
         profile = self._combo_profile.currentData()
         framerate = self._combo_framerate.currentData()
         log.info(f'encode selection: {profile} {framerate}, {len(media_ids)} items')
         self._status(f'Encoding {len(media_ids)} items...')
         self._engine.encode_items(ids=media_ids, profile=profile, framerate=framerate)
+        return True
 
     def _delete_selection(self):
         log.info('delete selection')
@@ -283,3 +310,12 @@ class MainWindow(QMainWindow):
         self._is_scanning = False
         self._action_cancel_scan.setEnabled(False)
 
+    def _on_engine_encode_cancelled(self):
+        log.debug('encode_cancelled')
+        self._status('Encode cancelled')
+        self._set_encoding_state(False)
+
+    def _on_engine_encode_complete(self):
+        log.debug('encode_complete')
+        self._status('Encode complete')
+        self._set_encoding_state(False)
