@@ -88,8 +88,10 @@ class MainWindow(QMainWindow):
         for idx in sel.selectedIndexes():
             media_id = self._model.get_media_id_for_index(idx)
             media_ids.append(media_id)
-        self._engine.encode_items(media_ids)
-        sel.clear()
+        if media_ids:
+            self._status(f'Encoding {len(media_ids)} items...')
+            self._engine.encode_items(media_ids)
+            sel.clear()
 
     def _delete_selection(self):
         sel = self._view.selectionModel()
