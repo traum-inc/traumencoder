@@ -8,6 +8,7 @@ import shlex
 import clique
 import pickle
 import hashlib
+import platform
 import subprocess
 import multiprocessing
 from fractions import Fraction
@@ -130,6 +131,13 @@ def subprocess_exec(cmd, encoding='utf8'):
     proc.check_returncode()
     return proc.stdout
 
+def get_ffmpeg_bin(name):
+    if platform.system() == 'Windows':
+        bin_dir = os.path.abspath(os.path.join(os.curdir, 'bin'))
+        return os.path.join(bin_dir, f'{name}.exe')
+    else:
+        # assume in user's path
+        return name
 
 scan_paths_queue = []
 scan_cancelled = False
@@ -295,8 +303,10 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
 def probe_item(id):
     item = media_lookup(id)
+    program = get_ffmpeg_bin('ffprobe')
+
     out = subprocess_exec(f'''
-        ffprobe
+        {program}
             -loglevel panic
             -show_streams
             {get_ff_input_spec(item)}
@@ -342,9 +352,10 @@ def thumbnail_item(id, size=(-1, 256)):
     item = media_lookup(id)
     inspec = get_ff_input_spec(item)
     outpath = '-'   # stdout
+    program = get_ffmpeg_bin('ffmpeg')
 
     cmd = f'''
-        ffmpeg
+        {program}
             -v 0
             -ss 1
             -noaccurate_seek
@@ -393,8 +404,8 @@ def preview_item(id, framerate=None):
         framerate = framerates[framerate]['rate']
 
     inspec = get_ff_input_spec(item, framerate)
-
-    cmd = f'ffplay {inspec}'
+    program = get_ffmpeg_bin('ffplay')
+    cmd = f'{program} {inspec}'
     args = shlex.split(cmd)
 
     # spawn, don't wait
@@ -468,8 +479,10 @@ def encode_item(id, profile, framerate=None, outpath=None):
         -pix_fmt {ffargs['pix_fmt']}
     '''
 
+    program = get_ffmpeg_bin('ffmpeg')
+
     cmd = f'''
-        ffmpeg
+        {program}
             {inspec}
             {codec_args}
             -an
