@@ -153,7 +153,9 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
                 add_file(filepath)
 
     def assemble_sequences():
-        seqs, _ = clique.assemble(images)
+        seqs, _ = clique.assemble(images, minimum_items=config.CLIQUE_MINIMUM_ITEMS)
+        if config.CLIQUE_CONTIGUOUS_ONLY:
+            seqs = [s for s in seqs if s.is_contiguous()]
         sequences.extend(seqs)
 
     # scan paths
