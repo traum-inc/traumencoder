@@ -13,6 +13,7 @@ from PyQt5.QtCore import (
         )
 
 from medialist import MediaListView, MediaListModel
+from encodingprofiles import encoding_profiles
 import config
 
 
@@ -81,6 +82,7 @@ class MainWindow(QMainWindow):
             handler=self._encode_selection)
 
         menubar = self.menuBar()
+
         menu = menubar.addMenu('&File')
         menu.addAction(action_import_videos)
         menu.addAction(action_import_folder)
@@ -92,6 +94,26 @@ class MainWindow(QMainWindow):
         toolbar = self.addToolBar('Exit')
         for action in [action_import_videos, action_import_folder]:
             toolbar.addAction(action)
+
+        toolbar.addSeparator()
+
+        combo = QComboBox()
+        profile_ids = list(encoding_profiles)
+        for profile_id in profile_ids:
+            profile = encoding_profiles[profile_id]
+            combo.addItem(profile['label'], userData=id)
+        combo.setCurrentIndex(profile_ids.index('prores_422'))
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        toolbar.addWidget(spacer)
+
+        #label = QLabel('Profile:')
+        #toolbar.addWidget(label)
+        toolbar.addWidget(combo)
+        toolbar.addAction(action_encode)
+
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 
         self._init_listview()
 
