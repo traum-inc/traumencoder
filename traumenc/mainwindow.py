@@ -157,7 +157,8 @@ class MainWindow(QMainWindow):
     def _import_media_folder(self):
         dirpath = QFileDialog.getExistingDirectory(
                 self,
-                'Import folder')
+                'Import folder',
+                options=QFileDialog.ShowDirsOnly)
         log.info(f'import_media_folder: {dirpath}')
         if dirpath:
             self._start_scan([dirpath])
