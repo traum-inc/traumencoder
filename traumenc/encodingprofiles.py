@@ -4,9 +4,9 @@ default_ffargs = {
     'pix_fmt': 'yuv422p10',
     }
 
-def add_prores_profile(id, label, **ffargs):
+def add_prores_profile(id, label, **kwargs):
     ffargs = default_ffargs.copy()
-    ffargs.update(ffargs)
+    ffargs.update(kwargs)
     encoding_profiles[id] = {
         'label': label,
         'ffargs': ffargs,

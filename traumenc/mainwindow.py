@@ -107,6 +107,7 @@ class MainWindow(QMainWindow):
             framerate = framerates[framerate_id]
             combo.addItem(framerate['label'], userData=framerate_id)
         combo.setCurrentIndex(framerate_ids.index('fps_30'))
+        self._combo_framerate = combo
 
         #toolbar.addWidget(QLabel('Rate:'))
         toolbar.addWidget(combo)
@@ -116,9 +117,9 @@ class MainWindow(QMainWindow):
         profile_ids = list(encoding_profiles)
         for profile_id in profile_ids:
             profile = encoding_profiles[profile_id]
-            combo.addItem(profile['label'], userData=id)
+            combo.addItem(profile['label'], userData=profile_id)
         combo.setCurrentIndex(profile_ids.index('prores_422'))
-
+        self._combo_profile = combo
         #toolbar.addWidget(QLabel('Profile:'))
         toolbar.addWidget(combo)
 
@@ -139,11 +140,14 @@ class MainWindow(QMainWindow):
         return media_ids
 
     def _encode_selection(self):
-        log.info('encode selection')
         media_ids = self._get_selected_media_ids(True)
-        if media_ids:
-            self._status(f'Encoding {len(media_ids)} items...')
-            self._engine.encode_items(media_ids)
+        #if not media_ids: return
+
+        profile = self._combo_profile.currentData()
+        framerate = self._combo_framerate.currentData()
+        log.info(f'encode selection: {profile} {framerate}, {len(media_ids)} items')
+        self._status(f'Encoding {len(media_ids)} items...')
+        self._engine.encode_items(ids=media_ids, profile=profile, framerate=framerate)
 
     def _delete_selection(self):
         log.info('delete selection')

@@ -16,6 +16,7 @@ import logging
 log = logging.getLogger('engine.proxy')
 
 import config
+from encodingprofiles import encoding_profiles, framerates
 
 
 # connection to client
@@ -69,13 +70,15 @@ def media_delete(id):
 def media_lookup(id):
     return media_items.get(id)
 
-def get_ff_input_spec(item):
+def get_ff_input_spec(item, framerate=None):
     if item['type'] == 'sequence':
         seq = clique.parse(item['path'])
         seqpath = seq.format('{head}{padding}{tail}')
         start = list(seq.indexes)[0]
-        sequence_framerate = ':'.join(str(x) for x in item['framerate'])
-        inputspec = f'-i "{seqpath}" -framerate {sequence_framerate} -start_number {start}'
+        if not framerate:
+            framerate = item['framerate']
+        sequence_framerate = ':'.join(str(x) for x in framerate)
+        inputspec = f'-framerate {sequence_framerate} -i "{seqpath}" -start_number {start}'
     elif item['type'] == 'video':
         filepath = item['path']
         inputspec = f'-i "{filepath}"'
@@ -298,19 +301,19 @@ def remove_items(ids):
         media_delete(id)
 
 
-def encode_items(ids):
+def encode_items(ids, profile, framerate):
     encode_queue = []
 
     for id in ids:
         media_update(id, state='queued')
-        encode_queue.append(id)
+        encode_queue.append((id, profile, framerate))
 
     while encode_queue:
-        id = encode_queue.pop(0)
-        encode_item(id)
+        id, profile, framerate = encode_queue.pop(0)
+        encode_item(id, profile, framerate)
 
 
-def encode_item(id, outpath=None):
+def encode_item(id, profile, framerate=None, outpath=None):
     item = media_lookup(id)
     if not item:
         log.warn(f'encode_item: can\'t find item {id}')
@@ -319,8 +322,20 @@ def encode_item(id, outpath=None):
     if outpath is None:
         outpath = get_item_default_outpath(item)
 
-    inspec = get_ff_input_spec(item)
-    codec_args = '-vcodec prores_ks -profile:v 3'
+    if framerate:
+        framerate = framerates[framerate]['rate']
+
+    inspec = get_ff_input_spec(item, framerate)
+
+    # TODO force input framerate??
+
+    ffargs = encoding_profiles[profile]['ffargs']
+    codec_args = f'''
+        -codec:v {ffargs['codec']}
+        -profile:v {ffargs['profile']}
+        -vendor {ffargs['vendor']}
+        -pix_fmt {ffargs['pix_fmt']}
+    '''
 
     cmd = f'''
         ffmpeg
@@ -454,8 +469,8 @@ class EngineProxy(object):
     def scan_paths(self, paths, sequence_framerate=(30,1)):
         self._send_command('scan_paths', paths=paths, sequence_framerate=sequence_framerate)
 
-    def encode_items(self, ids):
-        self._send_command('encode_items', ids=ids)
+    def encode_items(self, ids, profile='prores_422', framerate='fps_30'):
+        self._send_command('encode_items', ids=ids, profile=profile, framerate=framerate)
 
     def remove_items(self, ids):
         self._send_command('remove_items', ids=ids)
