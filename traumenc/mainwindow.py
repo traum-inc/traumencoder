@@ -13,7 +13,7 @@ from PyQt5.QtCore import (
         )
 
 from medialist import MediaListView, MediaListModel
-from encodingprofiles import encoding_profiles
+from encodingprofiles import encoding_profiles, framerates
 import config
 
 
@@ -102,11 +102,11 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(spacer)
 
         combo = QComboBox()
-        framerates = ['23.98', '24', '25', '30', '60']
-        for framerate in framerates:
-            label = f'{framerate} fps'
-            combo.addItem(label, userData=framerate)
-        combo.setCurrentIndex(framerates.index('30'))
+        framerate_ids = list(framerates.keys())
+        for framerate_id in framerate_ids:
+            framerate = framerates[framerate_id]
+            combo.addItem(framerate['label'], userData=framerate_id)
+        combo.setCurrentIndex(framerate_ids.index('fps_30'))
 
         #toolbar.addWidget(QLabel('Rate:'))
         toolbar.addWidget(combo)
