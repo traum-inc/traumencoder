@@ -15,6 +15,8 @@ from fractions import Fraction
 import logging
 log = logging.getLogger('engine.proxy')
 
+import config
+
 
 # connection to client
 engine_conn = None
@@ -103,8 +105,11 @@ def get_item_default_outpath(item):
         num = '0' * seq.padding
         outpath = f'{seq.head}{num}{seq.tail}'
         basepath = os.path.splitext(outpath)[0]
-        outpath = f'{basepath}_prores.mov'
+        outpath = f'{basepath}{config.DEFAULT_OUTPUT_SUFFIX}'
     return outpath
+
+def matches_default_outpath(path):
+    return path.endswith(config.DEFAULT_OUTPUT_SUFFIX)
 
 def save_media_items(filepath=None):
     if not filepath:
@@ -181,6 +186,10 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
         media_update(id, state='ready')
 
     for path in videos:
+        if matches_default_outpath(path):
+            log.info(f'scan ignoring: {path}')
+            continue
+
         add_item('video', path)
 
     # XXX framerate set on scan
