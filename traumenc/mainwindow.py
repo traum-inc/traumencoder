@@ -153,6 +153,8 @@ class MainWindow(QMainWindow):
                 'Import videos',
                 filter='Videos (*.mov *.avi *.mp4 *.m4v *.webm)')
         log.info(f'import: {filenames}')
+        if filenames:
+            self._start_scan(filenames)
 
     def _import_media_folder(self):
         dirpath = QFileDialog.getExistingDirectory(
