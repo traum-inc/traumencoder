@@ -81,25 +81,35 @@ class MainWindow(QMainWindow):
 
         self._init_listview()
 
-    def _encode_selection(self):
-        log.info('encode selection')
+    def _get_selected_media_ids(self, clear=False):
         sel = self._view.selectionModel()
         media_ids = []
         for idx in sel.selectedIndexes():
             media_id = self._model.get_media_id_for_index(idx)
             media_ids.append(media_id)
+        if clear:
+            sel.clear()
+        return media_ids
+
+    def _encode_selection(self):
+        log.info('encode selection')
+        media_ids = self._get_selected_media_ids(True)
         if media_ids:
             self._status(f'Encoding {len(media_ids)} items...')
             self._engine.encode_items(media_ids)
-            sel.clear()
 
     def _delete_selection(self):
-        sel = self._view.selectionModel()
-        idxs = [QPersistentModelIndex(idx) for idx in sel.selectedIndexes()]
-        for idx in idxs:
-            self._model.removeRow(idx.row())
-        idxs = None
-        sel.clear()
+        log.info('delete selection')
+        media_ids = self._get_selected_media_ids(True)
+        if media_ids:
+            self._engine.remove_items(media_ids)
+
+        # sel = self._view.selectionModel()
+        # idxs = [QPersistentModelIndex(idx) for idx in sel.selectedIndexes()]
+        # for idx in idxs:
+        #     self._model.removeRow(idx.row())
+        # idxs = None
+        # sel.clear()
 
     def _import_media(self):
         #url = QFileDialog.getExistingDirectoryUrl(self, 'Import media')
@@ -155,16 +165,20 @@ class MainWindow(QMainWindow):
     def _dispatch_engine_event(self, event, args):
         """Dispatch event to handler if one exists.
         """
-        try:
-            handler = getattr(self, f'_on_engine_{event}')
+        handler = getattr(self, f'_on_engine_{event}', None)
+        if handler:
             handler(*args)
-        except AttributeError:
+        else:
             log.warn(f'unhandled engine event: {event} {args}')
 
     def _on_engine_media_update(self, id, data):
         log.debug(f'media_update {id} ({",".join(data.keys())})')
         data['id'] = id
         self._model._update_item(data)
+
+    def _on_engine_media_delete(self, id):
+        log.debug(f'media_delete {id}')
+        self._model._remove_item_by_id(id)
 
     def _on_engine_scan_complete(self):
         log.debug('scan_complete')

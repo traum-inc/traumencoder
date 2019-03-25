@@ -63,6 +63,10 @@ class MediaListModel(QAbstractListModel):
         item = self._items[row]
         return item['id']
 
+    def _remove_item_by_id(self, id):
+        row = self._find_row_with_id(id)
+        self.removeRow(row)
+
     def _update_item(self, data):
         row = self._find_row_with_id(data['id'])
         if row < 0:

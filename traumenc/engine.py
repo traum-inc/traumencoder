@@ -281,6 +281,21 @@ def thumbnail_item(id, size=(-1, 256)):
     #img = Image.open(f)
     #print('JPEG:', len(out), img.size)
 
+
+def remove_items(ids):
+    # XXX some things that should happen here..
+    # is the item in the encode queue?
+
+    for id in ids:
+        item = media_lookup(id)
+        state = item['state']
+        if state in ('new', 'encoding'):
+            # ignore
+            continue
+
+        media_delete(id)
+
+
 def encode_items(ids):
     encode_queue = []
 
@@ -422,6 +437,8 @@ def start_engine(conn):
             scan_paths(**kwargs)
         elif cmd == 'encode_items':
             encode_items(**kwargs)
+        elif cmd == 'remove_items':
+            remove_items(**kwargs)
         elif cmd == 'join':
             break
     log.debug('start_engine: exit')
@@ -437,6 +454,9 @@ class EngineProxy(object):
 
     def encode_items(self, ids):
         self._send_command('encode_items', ids=ids)
+
+    def remove_items(self, ids):
+        self._send_command('remove_items', ids=ids)
 
     def join(self):
         self._send_command('join')
