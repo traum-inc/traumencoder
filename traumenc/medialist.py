@@ -13,6 +13,7 @@ from PyQt5.QtCore import (
         )
 
 from utils import format_size
+import config
 
 class MediaListView(QListView):
     def __init__(self, parent=None):
@@ -149,6 +150,14 @@ class MediaItemDelegate(QStyledItemDelegate):
     def sizeHint(self, option, index):
         return QSize(128, 128)
 
+state_colors = {
+    'new': 'gray',
+    'ready': 'gray',
+    'done': 'green',
+    'error': 'red',
+    'encoding': 'blue',
+    'queued': 'orange',
+    }
 
 def format_media_item_html(item):
     displayname = item.get('displayname')
@@ -164,16 +173,33 @@ def format_media_item_html(item):
         html.append(f'<b style="font-size: 13px;">{displayname}</b>')
 
     deets = []
-    if codec and pixfmt:
-        deets.append(f'Codec: {codec} ({pixfmt})')
-    if resolution:
-        deets.append(f'Resolution: {resolution[0]}x{resolution[1]}')
-    if duration:
-        deets.append(f'Duration: {duration:.02f}s')
-    if filesize:
-        deets.append(f'Size: {format_size(filesize)}')
-    if state:
-        deets.append(f'State: {state}')
+
+    if config.MEDIA_LIST_SHORT_DETAILS:
+        if resolution:
+            deets.append(f'{resolution[0]}x{resolution[1]}')
+        if codec and pixfmt:
+            deets.append(f'{codec} ({pixfmt})')
+        if duration:
+            deets.append(f'{duration:.02f}s')
+        deets = [' '.join(deets)]
+
+        if filesize:
+            deets.append(f'{format_size(filesize)}')
+
+        if state:
+            color = state_colors.get(state, 'auto')
+            deets.append(f'<b style="color: {color};">{state.upper()}</b>')
+    else:
+        if codec and pixfmt:
+            deets.append(f'Codec: {codec} ({pixfmt})')
+        if resolution:
+            deets.append(f'Resolution: {resolution[0]}x{resolution[1]}')
+        if duration:
+            deets.append(f'Duration: {duration:.02f}s')
+        if filesize:
+            deets.append(f'Size: {format_size(filesize)}')
+        if state:
+            deets.append(f'State: {state}')
 
     if deets:
         deets = '<br>'.join(deets)
