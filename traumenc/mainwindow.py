@@ -1,13 +1,15 @@
 import logging
 
 from PyQt5.QtWidgets import (
-        QMainWindow, QAction, QFileDialog, qApp,
+        QMainWindow, QAction, QFileDialog, QComboBox, QLabel,
+        QWidget, QSizePolicy,
+        qApp,
         )
 from PyQt5.QtGui import (
         QIcon,
         )
 from PyQt5.QtCore import (
-        QSize, QTimer, QPersistentModelIndex,
+        Qt, QSize, QTimer, QPersistentModelIndex,
         )
 
 from medialist import MediaListView, MediaListModel
@@ -50,16 +52,24 @@ class MainWindow(QMainWindow):
             key='Ctrl+Q',
             handler=qApp.quit)
 
-        action_import = make_action(
-            text='&Import',
+        action_import_videos = make_action(
+            text='&Add Videos',
             icon='import',
-            tip='Import media',
+            tip='Add videos',
             key='Ctrl+I',
-            handler=self._import_media)
+            handler=self._import_media_videos)
+
+        action_import_folder = make_action(
+            text='&Add Folder',
+            icon='import',
+            tip='Add folder',
+            key='Ctrl+I',
+            handler=self._import_media_folder)
 
         action_delete = make_action(
             text='&Delete',
             icon='trash',
+            key='Delete',
             tip='Delete selection',
             handler=self._delete_selection)
 
@@ -72,11 +82,15 @@ class MainWindow(QMainWindow):
 
         menubar = self.menuBar()
         menu = menubar.addMenu('&File')
-        menu.addAction(action_import)
+        menu.addAction(action_import_videos)
+        menu.addAction(action_import_folder)
         menu.addAction(action_quit)
 
+        menu = menubar.addMenu('&Edit')
+        menu.addAction(action_delete)
+
         toolbar = self.addToolBar('Exit')
-        for action in [action_quit, action_import, action_delete, action_encode]:
+        for action in [action_import_videos, action_import_folder]:
             toolbar.addAction(action)
 
         self._init_listview()
@@ -111,13 +125,20 @@ class MainWindow(QMainWindow):
         # idxs = None
         # sel.clear()
 
-    def _import_media(self):
-        #url = QFileDialog.getExistingDirectoryUrl(self, 'Import media')
+    def _import_media_videos(self):
         filenames, _ = QFileDialog.getOpenFileNames(
                 self,
-                'Import movies',
-                filter='Movies (*.mov *.avi *.mp4 *.m4v *.webm)')
+                'Import videos',
+                filter='Videos (*.mov *.avi *.mp4 *.m4v *.webm)')
         log.info(f'import: {filenames}')
+
+    def _import_media_folder(self):
+        dirpath = QFileDialog.getExistingDirectory(
+                self,
+                'Import folder')
+        log.info(f'import_media_folder: {dirpath}')
+        if dirpath:
+            self._start_scan([dirpath])
 
     def _init_listview(self):
         self._model = MediaListModel()
