@@ -22,6 +22,10 @@ from encodingprofiles import encoding_profiles, framerates
 # connection to client
 engine_conn = None
 
+def send_to_client(*args):
+    if engine_conn:
+        engine_conn.send(args)
+
 # the media database: all active media objects
 media_items = {}
 
@@ -55,16 +59,11 @@ def media_update(id, **kwargs):
     log.debug(f'media_update: cached {id} ({keys})')
 
     # send out
-    if engine_conn:
-        engine_conn.send((
-            'media_update', id, kwargs))
+    send_to_client('media_update', id, kwargs)
 
 def media_delete(id):
     del media_items[id]
-
-    if engine_conn:
-        engine_conn.send((
-            'media_delete', id))
+    send_to_client('media_delete', id)
 
 
 def media_lookup(id):
@@ -206,9 +205,7 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
         add_item('sequence', path)
 
     #save_media_items()
-    if engine_conn:
-        engine_conn.send((
-            'scan_complete',))
+    send_to_client('scan_complete')
 
 def probe_item(id):
     item = media_lookup(id)
