@@ -133,6 +133,7 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
     videos = []
     images = []
+    sequences = []
 
     def add_file(filepath):
         _, ext = os.path.splitext(filepath)
@@ -151,15 +152,17 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
                 filepath = os.path.join(dirpath, filename)
                 add_file(filepath)
 
+    def assemble_sequences():
+        seqs, _ = clique.assemble(images)
+        sequences.extend(seqs)
+
     # scan paths
     for path in paths:
         if os.path.isfile(path):
             add_file(path)
         elif os.path.isdir(path):
             add_dir(path)
-
-    # assemble image sequences
-    sequences, _ = clique.assemble(images)
+            assemble_sequences()
 
     def add_item(type, path):
         path = os.path.abspath(path)
