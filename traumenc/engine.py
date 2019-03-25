@@ -297,7 +297,7 @@ def encode_item(id, outpath=None):
         ffmpeg
             {inspec}
             {codec_args}
-            -acodec none
+            -an
             -y "{outpath}"
     '''
 
