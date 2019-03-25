@@ -137,7 +137,27 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
     images = []
     sequences = []
 
+    last_update_time = time.time()
+    update_interval = 0.3
+    scan_totals = [0, 0]
+
+    def scan_update(dirs, files):
+        scan_totals[0] += dirs
+        scan_totals[1] += files
+
+        nonlocal last_update_time
+        now = time.time()
+        if now - last_update_time < update_interval:
+            return
+
+        send_to_client('scan_update', scan_totals[0], scan_totals[1])
+        last_update_time = now
+
+        add_videos_and_sequences()
+
     def add_file(filepath):
+        scan_update(0, 1)
+
         _, ext = os.path.splitext(filepath)
         if not ext or ext[0] != '.':
             return
@@ -150,23 +170,11 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
     def add_dir(dirpath):
         for dirpath, _, filenames in os.walk(path, followlinks=True):
+            #log.debug(f'scan dir: {dirpath}')
+            scan_update(1, 0)
             for filename in filenames:
                 filepath = os.path.join(dirpath, filename)
                 add_file(filepath)
-
-    def assemble_sequences():
-        seqs, _ = clique.assemble(images, minimum_items=config.CLIQUE_MINIMUM_ITEMS)
-        if config.CLIQUE_CONTIGUOUS_ONLY:
-            seqs = [s for s in seqs if s.is_contiguous()]
-        sequences.extend(seqs)
-
-    # scan paths
-    for path in paths:
-        if os.path.isfile(path):
-            add_file(path)
-        elif os.path.isdir(path):
-            add_dir(path)
-            assemble_sequences()
 
     def add_item(type, path):
         path = os.path.abspath(path)
@@ -192,17 +200,39 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
         thumbnail_item(id)
         media_update(id, state='ready')
 
-    for path in videos:
-        if matches_default_outpath(path):
-            log.info(f'scan ignoring: {path}')
-            continue
+    def add_videos_and_sequences():
+        nonlocal videos
+        nonlocal sequences
 
-        add_item('video', path)
+        for path in videos:
+            if matches_default_outpath(path):
+                log.info(f'scan ignoring: {path}')
+                continue
+            add_item('video', path)
+        videos = []
 
-    # XXX framerate set on scan
-    for seq in sequences:
-        path = str(seq)
-        add_item('sequence', path)
+        # XXX framerate set on scan
+        for seq in sequences:
+            path = str(seq)
+            add_item('sequence', path)
+        sequences = []
+
+    def assemble_sequences():
+        seqs, _ = clique.assemble(images, minimum_items=config.CLIQUE_MINIMUM_ITEMS)
+        if config.CLIQUE_CONTIGUOUS_ONLY:
+            seqs = [s for s in seqs if s.is_contiguous()]
+        sequences.extend(seqs)
+
+    # scan paths
+    for path in paths:
+        if os.path.isfile(path):
+            add_file(path)
+        elif os.path.isdir(path):
+            add_dir(path)
+            assemble_sequences()
+
+    # add remaining videos and sequences
+    add_videos_and_sequences()
 
     #save_media_items()
     send_to_client('scan_complete')

@@ -241,6 +241,10 @@ class MainWindow(QMainWindow):
         log.debug(f'media_delete {id}')
         self._model._remove_item_by_id(id)
 
+    def _on_engine_scan_update(self, dirs, files):
+        log.debug(f'scan_update: {dirs} dirs, {files} files')
+        self._status(f'Scanning {dirs} folders, {files} files...')
+
     def _on_engine_scan_complete(self):
         log.debug('scan_complete')
         self._status('Scan complete')
