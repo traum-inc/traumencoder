@@ -240,11 +240,11 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
         #log.info(f'SCAN_CANCELLED={scan_cancelled}')
         if not scan_cancelled:
-            probe_item(id)
-            thumbnail_item(id)
-            media_update(id, state='ready')
-
-            # poll here too...
+            if probe_item(id) and thumbnail_item(id):
+                media_update(id, state='ready')
+            else:
+                # broken... delete it
+                media_delete(id)
             poll_client()
 
     def add_videos_and_sequences():
@@ -307,38 +307,44 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 def probe_item(id):
     item = media_lookup(id)
     program = get_ffmpeg_bin('ffprobe')
-
-    out = subprocess_exec(f'''
-        {program}
-            -loglevel panic
-            -show_streams
-            {get_ff_input_spec(item)}
-            -print_format json
-            -show_streams
-        ''')
-    ob = json.loads(out)
-    st = ob['streams'][0]
+    inspec = get_ff_input_spec(item)
 
     try:
-        fr = Fraction(st['r_frame_rate'])
-        framerate = (fr.numerator, fr.denominator)
-    except ZeroDivisionError:
-        framerate = (0, 0)
+        out = subprocess_exec(f'''
+            {program}
+                -loglevel panic
+                -show_streams
+                {inspec}
+                -print_format json
+                -show_streams
+            ''')
+        ob = json.loads(out)
+        st = ob['streams'][0]
 
-    resolution = (
-        st.get('width', 0),
-        st.get('height', 0))
+        try:
+            fr = Fraction(st['r_frame_rate'])
+            framerate = (fr.numerator, fr.denominator)
+        except ZeroDivisionError:
+            framerate = (0, 0)
 
-    pixfmt = st.get('pix_fmt', 'unknown')
-    duration = st.get('duration', 0.0)
+        resolution = (
+            st.get('width', 0),
+            st.get('height', 0))
 
-    media_update(id,
-        codec=st['codec_name'],
-        resolution=resolution,
-        framerate=framerate,
-        pixfmt=pixfmt,
-        duration=float(duration),
-        )
+        pixfmt = st.get('pix_fmt', 'unknown')
+        duration = st.get('duration', 0.0)
+
+        media_update(id,
+            codec=st['codec_name'],
+            resolution=resolution,
+            framerate=framerate,
+            pixfmt=pixfmt,
+            duration=float(duration),
+            )
+
+    except subprocess.CalledProcessError as e:
+        log.warn(f'ffprobe failed: {inspec}')
+        return False
 
     # filesize
     if item['type'] == 'video':
@@ -349,6 +355,7 @@ def probe_item(id):
         for filepath in seq:
             filesize += os.path.getsize(filepath)
     media_update(id, filesize=filesize)
+    return True
 
 
 def thumbnail_item(id, size=(-1, 256)):
@@ -373,15 +380,13 @@ def thumbnail_item(id, size=(-1, 256)):
     try:
         out = subprocess_exec(cmd, encoding=None)
         media_update(id, thumbnail=out)
+        return True
 
     except subprocess.CalledProcessError as e:
         log.warn('thumbnail failed:', inspec)
         #print(e.cmd)
         #print(e.output)
-
-    #f = io.BytesIO(out)
-    #img = Image.open(f)
-    #print('JPEG:', len(out), img.size)
+        return False
 
 
 def remove_items(ids):
