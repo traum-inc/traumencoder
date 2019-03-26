@@ -6,3 +6,5 @@ WORKLOG
 __pycache__
 .DS_Store
 /virtualenv
+/build
+/dist
