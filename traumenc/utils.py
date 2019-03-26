@@ -11,6 +11,11 @@ def format_size(num, suffix='B'):
 
 
 def setup_logging(color=False):
+    root = logging.root
+    if root.hasHandlers():
+        # already setup
+        return
+
     datefmt = '%H:%M:%S'
     if color:
         import colorlog
@@ -26,8 +31,6 @@ def setup_logging(color=False):
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
-    logger = logging.root
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-
+    root.addHandler(handler)
+    root.setLevel(logging.DEBUG)
     return logging

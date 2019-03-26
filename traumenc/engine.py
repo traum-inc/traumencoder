@@ -14,6 +14,7 @@ import multiprocessing
 from fractions import Fraction
 
 import logging
+from utils import setup_logging
 log = logging.getLogger('engine.proxy')
 
 import config
@@ -646,6 +647,7 @@ def start_engine(conn):
 
     global log
     log = logging.getLogger('engine.child')
+    setup_logging(color=True)
 
     log.debug('start_engine')
     while not client_wants_to_join:
