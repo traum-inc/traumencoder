@@ -174,7 +174,7 @@ def format_media_item_html(item):
 
     html = []
     if displayname:
-        html.append(f'<b style="font-size: 13px;">{displayname}</b>')
+        html.append(f'<b>{displayname}</b>')
 
     deets = []
 
