@@ -190,7 +190,7 @@ def format_media_item_html(item):
         if filesize:
             deets.append(f'{format_size(filesize)}')
 
-        if state:
+        if state and state != 'ready':
             color = state_colors.get(state, 'auto')
             deets.append(f'<b style="color: {color};">{state.upper()}</b>')
     else:
@@ -207,6 +207,6 @@ def format_media_item_html(item):
 
     if deets:
         deets = '<br>'.join(deets)
-        html.append(f'<div style="font-style: italic; color: gray;">{deets}</div>')
+        html.append(f'<div style="font-style: normal; color: gray;">{deets}</div>')
 
     return ''.join(html)
