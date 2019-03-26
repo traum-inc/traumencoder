@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import multiprocessing
 from PyQt5.QtWidgets import QApplication
 
 from engine import create_engine
@@ -10,6 +11,9 @@ import logging
 log = logging.getLogger('app')
 
 if __name__ == '__main__':
+    # enable frozen module support for Windows installer
+    multiprocessing.freeze_support()
+
     setup_logging(color=True)
     app = QApplication(sys.argv)
 
