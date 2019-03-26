@@ -408,10 +408,14 @@ def preview_item(id, framerate=None):
     if not item:
         return
 
-    if framerate:
-        framerate = framerates[framerate]['rate']
+    if item['state'] == 'done' and 'outpath' in item:
+        outpath = item['outpath']
+        inspec = f'-i "{outpath}"'
+    else:
+        if framerate:
+            framerate = framerates[framerate]['rate']
+        inspec = get_ff_input_spec(item, framerate)
 
-    inspec = get_ff_input_spec(item, framerate)
     program = get_ffmpeg_bin('ffplay')
     cmd = f'{program} {inspec}'
     args = shlex.split(cmd)
@@ -584,7 +588,7 @@ def encode_item(id, profile, framerate=None, outpath=None):
 
     rc = proc.wait()
     if rc == 0:
-        media_update(id, progress=1.0, state='done')
+        media_update(id, progress=1.0, state='done', outpath=outpath)
     elif encode_cancelled:
         media_update(id, progress=0.0, state='ready')
     else:
