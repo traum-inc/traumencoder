@@ -345,6 +345,8 @@ def probe_item(id):
 
     except subprocess.CalledProcessError as e:
         log.warn(f'ffprobe failed: {inspec}')
+        log.warn(e.cmd)
+        log.warn(e.output)
         return False
 
     # filesize
@@ -385,8 +387,8 @@ def thumbnail_item(id, size=(-1, 256)):
 
     except subprocess.CalledProcessError as e:
         log.warn('thumbnail failed:', inspec)
-        #print(e.cmd)
-        #print(e.output)
+        log.warn(e.cmd)
+        log.warn(e.output)
         return False
 
 
