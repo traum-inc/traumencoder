@@ -492,13 +492,16 @@ def encode_item(id, profile, framerate=None, outpath=None):
         -pix_fmt {ffargs['pix_fmt']}
     '''
 
+    #audio_args = '-an'
+    audio_args = '-codec:a copy'
+
     program = get_ffmpeg_bin('ffmpeg')
 
     cmd = f'''
         {program}
             {inspec}
             {codec_args}
-            -an
+            {audio_args}
             -y "{outpath}"
     '''
 
