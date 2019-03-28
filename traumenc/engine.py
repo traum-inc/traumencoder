@@ -370,7 +370,7 @@ def thumbnail_item(id, size=(-1, 256)):
     cmd = f'''
         {program}
             -v 0
-            -ss 1
+            -ss 0
             -noaccurate_seek
             {inspec}
             -frames 1
