@@ -71,7 +71,16 @@ def media_delete(id):
 def media_lookup(id):
     return media_items.get(id)
 
-def get_ff_input_spec(item, framerate=None):
+def get_color_spec(item):
+    if not item.get('colorspace'):
+        # enforce bt.709
+        return '''
+            -color_primaries bt709
+            -color_trc bt709
+            -colorspace bt709
+        '''
+
+def get_ff_input_spec(item, framerate=None, color_spec=True):
     if item['type'] == 'sequence':
         seq = clique.parse(item['path'])
         seqpath = seq.format('{head}{padding}{tail}')
@@ -79,7 +88,13 @@ def get_ff_input_spec(item, framerate=None):
         if not framerate:
             framerate = item['framerate']
         sequence_framerate = ':'.join(str(x) for x in framerate)
-        inputspec = f'-framerate {sequence_framerate} -i "{seqpath}" -start_number {start}'
+
+        if color_spec == True:
+            color_spec = get_color_spec(item) or ''
+        elif color_spec == False:
+            color_spec = ''
+
+        inputspec = f'-framerate {sequence_framerate} {color_spec} -start_number {start} -i "{seqpath}"'
     elif item['type'] == 'video':
         filepath = item['path']
         inputspec = f'-i "{filepath}"'
@@ -308,7 +323,7 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 def probe_item(id):
     item = media_lookup(id)
     program = get_ffmpeg_bin('ffprobe')
-    inspec = get_ff_input_spec(item)
+    inspec = get_ff_input_spec(item, color_spec=False)
 
     try:
         out = subprocess_exec(f'''
