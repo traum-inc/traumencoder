@@ -313,11 +313,10 @@ def probe_item(id):
     try:
         out = subprocess_exec(f'''
             {program}
-                -loglevel panic
+                -v 0
                 -show_streams
-                {inspec}
                 -print_format json
-                -show_streams
+                {inspec}
             ''')
         ob = json.loads(out)
         st = ob['streams'][0]
@@ -341,6 +340,7 @@ def probe_item(id):
             framerate=framerate,
             pixfmt=pixfmt,
             duration=float(duration),
+            colorspace=st.get('color_space'),
             )
 
     except subprocess.CalledProcessError as e:

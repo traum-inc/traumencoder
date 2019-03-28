@@ -182,7 +182,12 @@ def format_media_item_html(item):
         if resolution:
             deets.append(f'{resolution[0]}x{resolution[1]}')
         if codec and pixfmt:
-            deets.append(f'{codec} ({pixfmt})')
+            colorspace = item.get('colorspace')
+            if colorspace:
+                colorspace = f', {colorspace}'
+            else:
+                colorspace = ''
+            deets.append(f'{codec} ({pixfmt}{colorspace})')
         if duration:
             deets.append(f'{duration:.02f}s')
         deets = [' '.join(deets)]
