@@ -16,4 +16,12 @@ config['clique'] = {
     'contiguous_only': True,
     }
 
+config['log'] = {
+    'stderr': False,
+    'color': False,
+    'file': '',
+    'append': True,
+    'level': 'debug',
+    }
+
 config.read('config.ini')

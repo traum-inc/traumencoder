@@ -1,4 +1,5 @@
 import logging
+from config import config
 
 
 # https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
@@ -11,26 +12,41 @@ def format_size(num, suffix='B'):
 
 
 def setup_logging(color=False):
+
     root = logging.root
     if root.hasHandlers():
         # already setup
         return
 
     datefmt = '%H:%M:%S'
-    if color:
-        import colorlog
-        formatter = colorlog.ColoredFormatter(
-            '%(asctime)s %(log_color)s%(levelname)-8s%(reset)s '
-            '%(blue)s%(name)-25.25s%(reset)s %(white)s%(message)s%(reset)s',
-            datefmt=datefmt,
-            reset=True,
-            log_colors={ 'DEBUG': 'cyan', 'INFO': 'green', 'WARNING': 'yellow', 'ERROR': 'red', 'CRITICAL': 'red' })
-    else:
-        formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(name)-25.25s %(message)s', datefmt=datefmt)
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(name)-25.25s %(message)s', datefmt=datefmt)
 
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
+    cfg = config['log']
 
-    root.addHandler(handler)
-    root.setLevel(logging.DEBUG)
+    if cfg.getboolean('stderr'):
+        if cfg.getboolean('color'):
+            import colorlog
+            stream_formatter = colorlog.ColoredFormatter(
+                '%(asctime)s %(log_color)s%(levelname)-8s%(reset)s '
+                '%(blue)s%(name)-25.25s%(reset)s %(white)s%(message)s%(reset)s',
+                datefmt=datefmt,
+                reset=True,
+                log_colors={ 'DEBUG': 'cyan', 'INFO': 'green', 'WARNING': 'yellow', 'ERROR': 'red', 'CRITICAL': 'red' })
+        else:
+            stream_formatter = formatter
+
+        handler = logging.StreamHandler()
+        handler.setFormatter(stream_formatter)
+        root.addHandler(handler)
+
+    filename = cfg.get('file')
+    if filename:
+        mode = 'a' if cfg.getboolean('append') else 'w'
+        handler = logging.FileHandler(filename, mode=mode)
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+
+    level = getattr(logging, cfg.get('level', 'debug').upper())
+    root.setLevel(level)
+
     return logging
