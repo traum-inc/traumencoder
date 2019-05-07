@@ -14,7 +14,7 @@ from PyQt5.QtCore import (
 
 from medialist import MediaListView, MediaListModel
 from encodingprofiles import encoding_profiles, framerates
-import config
+from config import config
 
 
 log = logging.getLogger('app')
@@ -259,8 +259,10 @@ class MainWindow(QMainWindow):
             return
 
         self._status('Scanning...')
-        self._engine.scan_paths(paths,
-                sequence_framerate=config.DEFAULT_SEQUENCE_FRAMERATE)
+
+        sequence_framerate_id = self._combo_framerate.currentData()
+        sequence_framerate = framerates[sequence_framerate_id]['rate']
+        self._engine.scan_paths(paths, sequence_framerate)
         self._is_scanning = True
         self._action_cancel_scan.setEnabled(True)
 
@@ -268,7 +270,7 @@ class MainWindow(QMainWindow):
         self._engine = engine
         timer = QTimer(self)
         timer.timeout.connect(self._poll_engine)
-        timer.setInterval(config.ENGINE_POLL_INTERVAL)
+        timer.setInterval(config['ui'].getint('engine_poll_interval'))
         timer.start()
 
     def _poll_engine(self):

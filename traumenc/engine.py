@@ -17,7 +17,7 @@ import logging
 from utils import setup_logging
 log = logging.getLogger('engine.proxy')
 
-import config
+from config import config
 from encodingprofiles import encoding_profiles, framerates
 
 
@@ -124,11 +124,13 @@ def get_item_default_outpath(item):
         num = '0' * seq.padding
         outpath = f'{seq.head}{num}{seq.tail}'
         basepath = os.path.splitext(outpath)[0]
-        outpath = f'{basepath}{config.DEFAULT_OUTPUT_SUFFIX}'
+        suffix = config['engine'].get('output_suffix')
+        outpath = f'{basepath}{suffix}'
     return outpath
 
 def matches_default_outpath(path):
-    return path.endswith(config.DEFAULT_OUTPUT_SUFFIX)
+    suffix = config['engine'].get('output_suffix')
+    return path.endswith(suffix)
 
 def save_media_items(filepath=None):
     if not filepath:
@@ -165,7 +167,7 @@ def cancel_scan():
     global scan_cancelled
     scan_cancelled = True
 
-def scan_paths(paths=[], sequence_framerate=(30,1)):
+def scan_paths(paths, sequence_framerate):
     scan_in_progress = len(scan_paths_queue) > 0
     scan_paths_queue.extend(paths)
     if scan_in_progress:
@@ -282,10 +284,13 @@ def scan_paths(paths=[], sequence_framerate=(30,1)):
 
     def assemble_sequences():
         if images:
+            minimum_items = config['clique'].getint('minimum_items')
+            contiguous_only = config['clique'].getboolean('contiguous_only')
+
             start_time = time.time()
             log.debug(f'assembling sequences from {len(images)} images...')
-            seqs, _ = clique.assemble(images, minimum_items=config.CLIQUE_MINIMUM_ITEMS)
-            if config.CLIQUE_CONTIGUOUS_ONLY:
+            seqs, _ = clique.assemble(images, minimum_items=minimum_items)
+            if contiguous_only:
                 seqs = [s for s in seqs if s.is_contiguous()]
             sequences.extend(seqs)
             elapsed = time.time() - start_time

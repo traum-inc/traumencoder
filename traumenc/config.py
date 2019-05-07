@@ -1,6 +1,19 @@
-ENGINE_POLL_INTERVAL = 200
-DEFAULT_SEQUENCE_FRAMERATE = (30, 1)
-DEFAULT_OUTPUT_SUFFIX = '_prores.mov'
-MEDIA_LIST_SHORT_DETAILS = True
-CLIQUE_MINIMUM_ITEMS = 2
-CLIQUE_CONTIGUOUS_ONLY = True
+from configparser import ConfigParser
+
+config = ConfigParser()
+
+config['ui'] = {
+    'engine_poll_interval': 200,
+    'details_style': 'long',
+    }
+
+config['engine'] = {
+    'output_suffix': '_prores.mov',
+    }
+
+config['clique'] = {
+    'minimum_items': 2,
+    'contiguous_only': True,
+    }
+
+config.read('config.ini')

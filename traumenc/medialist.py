@@ -13,7 +13,7 @@ from PyQt5.QtCore import (
         )
 
 from utils import format_size
-import config
+from config import config
 
 class MediaListView(QListView):
     def __init__(self, parent=None):
@@ -178,7 +178,7 @@ def format_media_item_html(item):
 
     deets = []
 
-    if config.MEDIA_LIST_SHORT_DETAILS:
+    if config['ui'].get('details_style') == 'short':
         if resolution:
             deets.append(f'{resolution[0]}x{resolution[1]}')
         if codec and pixfmt:
