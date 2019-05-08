@@ -19,6 +19,8 @@ from config import config
 
 log = logging.getLogger('app')
 
+app_title = 'Traum Encoder'
+
 
 icon_cache = {}
 def get_icon(name):
@@ -41,7 +43,8 @@ class MainWindow(QMainWindow):
 
     def _init_ui(self):
         self.setMinimumSize(QSize(640, 480))
-        self.setWindowTitle('traumEnc')
+        self.setWindowTitle(app_title)
+        qApp.setApplicationDisplayName(app_title)
 
         self.setAcceptDrops(True)
         self._status('Ready')
