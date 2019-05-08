@@ -193,7 +193,7 @@ def get_ffmpeg_bin(name):
 
     path = shutil.which(exe_filename)
     if not path:
-        log.fatal('Cannot find f{name} binary')
+        log.fatal(f'Cannot find {name} binary')
         assert False
 
     path = shlex.quote(path)
