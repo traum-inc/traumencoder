@@ -147,7 +147,7 @@ def subprocess_exec(cmd, encoding='utf8'):
     cmd = cmd.strip()
     args = shlex.split(cmd)
     log.debug(f'exec: {" ".join(args)}')
-    proc = subprocess.run(args, capture_output=True, encoding=encoding)
+    proc = subprocess.run(args, capture_output=True, encoding=encoding, creationflags=subprocess.CREATE_NO_WINDOW)
     proc.check_returncode()
     return proc.stdout
 
@@ -471,7 +471,7 @@ def preview_item(id, framerate=None):
 
     # spawn, don't wait
     log.info(f'spawning: {cmd}')
-    proc = subprocess.Popen(args)
+    proc = subprocess.Popen(args, creationflags=subprocess.CREATE_NO_WINDOW)
     log.info(f'pid={proc.pid}')
 
 
@@ -620,7 +620,7 @@ def encode_item(id, profile, framerate=None, outpath=None):
 
     # start the encoding process
     media_update(id, state='encoding')
-    proc = subprocess.Popen(args, bufsize=0, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(args, bufsize=0, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
     t0 = time.time()
     while True:
         ch = proc.stderr.read(1)
