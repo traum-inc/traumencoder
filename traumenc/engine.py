@@ -169,8 +169,8 @@ def get_ffmpeg_bin(name):
     for dirpath in ffmpeg_bin_search_paths:
         path = os.path.join(dirpath, exe_filename)
         path = shutil.which(path)
-        path = shlex.quote(path)
         if path:
+            path = shlex.quote(path)
             ffmpeg_bin_paths[name] = path
             log.info(f'found {name}: {path}')
             return path
