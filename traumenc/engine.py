@@ -5,6 +5,7 @@ import sys
 import time
 import json
 import shlex
+import shutil
 import clique
 import pickle
 import hashlib
@@ -150,15 +151,36 @@ def subprocess_exec(cmd, encoding='utf8'):
     proc.check_returncode()
     return proc.stdout
 
+ffmpeg_bin_paths = {}
+ffmpeg_bin_search_paths = config['engine'].get('ffmpeg_path').split(os.pathsep)
+log.info(f'ffmpeg bin search paths: {ffmpeg_bin_search_paths}')
+platform_exe_suffix = '.exe' if platform.system() == 'Windows' else ''
+
 def get_ffmpeg_bin(name):
-    if platform.system() == 'Windows':
-        bin_dir = os.path.abspath(os.path.join(os.curdir, 'bin'))
-        bin_path = os.path.join(bin_dir, f'{name}.exe')
-        # return quoted path or shlex will destroy it
-        return f'"{bin_path}"'
-    else:
-        # assume in user's path
-        return name
+    path = ffmpeg_bin_paths.get(name)
+    if path:
+        # cached
+        return path
+
+    exe_filename = f'{name}{platform_exe_suffix}'
+
+    for dirpath in ffmpeg_bin_search_paths:
+        path = os.path.join(dirpath, exe_filename)
+        path = shutil.which(path)
+        if path:
+            ffmpeg_bin_paths[name] = path
+            log.info(f'found f{name}: {path}')
+            return path
+
+    path = shutil.which(exe_filename)
+    if not path:
+        log.fatal('Cannot find f{name} binary')
+        assert False
+
+    ffmpeg_bin_paths[name] = path
+    log.info(f'found f{name}: {path}')
+    return path
+
 
 scan_paths_queue = []
 scan_cancelled = False

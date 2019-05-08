@@ -9,6 +9,7 @@ config['ui'] = {
 
 config['engine'] = {
     'output_suffix': '_prores.mov',
+    'ffmpeg_path': '',
     }
 
 config['clique'] = {
