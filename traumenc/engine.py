@@ -164,12 +164,15 @@ def get_ffmpeg_bin(name):
 
     exe_filename = f'{name}{platform_exe_suffix}'
 
+    # XXX this is a bit messy, need to quote the path to avoid eating \ on windows
+
     for dirpath in ffmpeg_bin_search_paths:
         path = os.path.join(dirpath, exe_filename)
         path = shutil.which(path)
+        path = shlex.quote(path)
         if path:
             ffmpeg_bin_paths[name] = path
-            log.info(f'found f{name}: {path}')
+            log.info(f'found {name}: {path}')
             return path
 
     path = shutil.which(exe_filename)
@@ -177,6 +180,7 @@ def get_ffmpeg_bin(name):
         log.fatal('Cannot find f{name} binary')
         assert False
 
+    path = shlex.quote(path)
     ffmpeg_bin_paths[name] = path
     log.info(f'found f{name}: {path}')
     return path
