@@ -140,6 +140,11 @@ def save_media_items(filepath=None):
     with open(filepath, 'wb') as f:
         pickle.dump(media_items, f, pickle.HIGHEST_PROTOCOL)
 
+# stops new console window from popping up every time we call ffmpeg etc
+subprocess_creationflags = (
+        subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows'
+        else None)
+
 def subprocess_exec(cmd, encoding='utf8'):
     # XXX this is gonna fail if filenames have multiple spaces. necessary?
     #cmd = re.sub('\s+', ' ', cmd)
@@ -147,9 +152,20 @@ def subprocess_exec(cmd, encoding='utf8'):
     cmd = cmd.strip()
     args = shlex.split(cmd)
     log.debug(f'exec: {" ".join(args)}')
-    proc = subprocess.run(args, capture_output=True, encoding=encoding, creationflags=subprocess.CREATE_NO_WINDOW)
+
+    kwargs = dict(capture_output=True, encoding=encoding)
+    if subprocess_creationflags:
+        kwargs['creationflags'] = subprocess_creationflags
+
+    proc = subprocess.run(args, **kwargs)
     proc.check_returncode()
     return proc.stdout
+
+def subprocess_popen(args, **kwargs):
+    if subprocess_creationflags:
+        kwargs['creationflags'] = subprocess_creationflags
+    return subprocess.Popen(args, **kwargs)
+
 
 ffmpeg_bin_paths = {}
 ffmpeg_bin_search_paths = config['engine'].get('ffmpeg_path').split(os.pathsep)
@@ -471,7 +487,7 @@ def preview_item(id, framerate=None):
 
     # spawn, don't wait
     log.info(f'spawning: {cmd}')
-    proc = subprocess.Popen(args, creationflags=subprocess.CREATE_NO_WINDOW)
+    proc = subprocess_popen(args)
     log.info(f'pid={proc.pid}')
 
 
@@ -620,7 +636,7 @@ def encode_item(id, profile, framerate=None, outpath=None):
 
     # start the encoding process
     media_update(id, state='encoding')
-    proc = subprocess.Popen(args, bufsize=0, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
+    proc = subprocess_popen(args, bufsize=0, stderr=subprocess.PIPE)
     t0 = time.time()
     while True:
         ch = proc.stderr.read(1)
