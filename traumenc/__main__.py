@@ -14,6 +14,11 @@ if __name__ == '__main__':
     # enable frozen module support for Windows installer
     multiprocessing.freeze_support()
 
+    # if frozen, cd to the bundle dir
+    if getattr(sys, 'frozen', False):
+        bundle_dir = sys._MEIPASS
+        os.chdir(bundle_dir)
+
     setup_logging(color=True)
     app = QApplication(sys.argv)
 
