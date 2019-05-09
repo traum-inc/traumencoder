@@ -11,9 +11,9 @@ pyinstaller -y `
     --add-data="bin;bin" `
     --windowed `
     --noupx `
-    -p traumenc `
-    -n traumenc `
-    traumenc\__main__.py
+    -p $appname `
+    -n $appname `
+    $appname\__main__.py
 
 $build_id = (git rev-parse --short HEAD)
 $build_date = (Get-Date).tostring("yyMMdd")
