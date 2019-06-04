@@ -498,7 +498,7 @@ def cancel_encode():
     global encode_cancelled
     encode_cancelled = True
 
-def encode_items(ids, profile, framerate):
+def encode_items(ids, profile, framerate, timecode, burn_in):
     global encode_cancelled
     if encode_cancelled:
         # don't add more to the queue on re-entry
@@ -512,18 +512,18 @@ def encode_items(ids, profile, framerate):
 
     for id in ids:
         media_update(id, state='queued')
-        encode_queue.append((id, profile, framerate))
+        encode_queue.append((id, profile, framerate, timecode, burn_in))
 
     while encode_queue:
         if encode_cancelled:
             break
 
-        id, profile, framerate = encode_queue.pop(0)
-        encode_item(id, profile, framerate)
+        id, profile, framerate, timecode, burn_in = encode_queue.pop(0)
+        encode_item(id, profile, framerate, timecode, burn_in)
 
     if encode_cancelled:
         # queue -> ready
-        for id, profile, framerate in encode_queue:
+        for id, profile, framerate, timecode, burn_in in encode_queue:
             media_update(id, state='ready')
 
         send_to_client('encode_cancelled')
@@ -532,7 +532,7 @@ def encode_items(ids, profile, framerate):
         send_to_client('encode_complete')
 
 
-def encode_item(id, profile, framerate=None, outpath=None):
+def encode_item(id, profile, framerate=None, timecode=None, burn_in=None, outpath=None):
     item = media_lookup(id)
     if not item:
         log.warn(f'encode_item: can\'t find item {id}')
@@ -549,11 +549,32 @@ def encode_item(id, profile, framerate=None, outpath=None):
     # TODO force input framerate??
 
     ffargs = encoding_profiles[profile]['ffargs']
+
+    timecode_args = []
+    if timecode:
+        timecode_args.append(
+            f'-timecode {timecode}')
+
+    if burn_in:
+        # FIXME
+        # escape timecode spec
+        if timecode:
+            burn_in_timecode = timecode.replace(':', r'\:')
+        else:
+            burn_in_timecode = r'00\:00\:00\:00'
+
+        fontpath = 'fonts/DroidSansMono.ttf'
+        timecode_args.append(
+            f'-vf "drawtext=fontfile=${fontpath}: timecode=\'{burn_in_timecode}\': r=25: x=(w-tw)/2: y=h-lh-20: fontcolor=white: fontsize=25: box=0: boxcolor=0x00000000@1: borderw=1"')
+
+    timecode_args = ' '.join(timecode_args)
+
     codec_args = f'''
         -codec:v {ffargs['codec']}
         -profile:v {ffargs['profile']}
         -vendor {ffargs['vendor']}
         -pix_fmt {ffargs['pix_fmt']}
+        {timecode_args}
     '''
 
     #audio_args = '-an'
@@ -734,8 +755,8 @@ class EngineProxy(object):
     def cancel_scan(self):
         self._send_command('cancel_scan')
 
-    def encode_items(self, ids, profile='prores_422', framerate='fps_30'):
-        self._send_command('encode_items', ids=ids, profile=profile, framerate=framerate)
+    def encode_items(self, ids, profile='prores_422', framerate='fps_30', timecode=None, burn_in=False):
+        self._send_command('encode_items', ids=ids, profile=profile, framerate=framerate, timecode=timecode, burn_in=burn_in)
 
     def cancel_encode(self):
         self._send_command('cancel_encode')

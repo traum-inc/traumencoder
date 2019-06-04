@@ -2,7 +2,7 @@ import logging
 
 from PyQt5.QtWidgets import (
         QMainWindow, QAction, QFileDialog, QComboBox, QLabel,
-        QWidget, QSizePolicy,
+        QWidget, QSizePolicy, QLineEdit, QCheckBox,
         qApp,
         )
 from PyQt5.QtGui import (
@@ -15,6 +15,7 @@ from PyQt5.QtCore import (
 from medialist import MediaListView, MediaListModel
 from encodingprofiles import encoding_profiles, framerates
 from config import config
+from utils import sanitize_timecode
 
 
 log = logging.getLogger('app')
@@ -49,8 +50,12 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self._status('Ready')
 
-        def make_action(text, icon, tip=None, key=None, handler=None):
-            action = QAction(get_icon(icon), text, self)
+        def make_action(text, icon=None, tip=None, key=None, handler=None):
+            if icon:
+                action = QAction(get_icon(icon), text, self)
+            else:
+                action = QAction(text, self)
+
             if key:
                 action.setShortcut(key)
             if tip:
@@ -113,6 +118,12 @@ class MainWindow(QMainWindow):
         menu = menubar.addMenu('&Edit')
         menu.addAction(action_delete)
 
+        burn_in = make_action('Timecode Burn-in')
+        burn_in.setCheckable(True)
+        menu = menubar.addMenu('&Filters')
+        menu.addAction(burn_in)
+        self._action_burn_in = burn_in
+
         toolbar = self.addToolBar('Exit')
         for action in [action_import_videos, action_import_folder]:
             toolbar.addAction(action)
@@ -147,6 +158,23 @@ class MainWindow(QMainWindow):
         self._combo_profile = combo
         #toolbar.addWidget(QLabel('Profile:'))
         toolbar.addWidget(combo)
+
+        # timecode
+        timecode = QLineEdit()
+        timecode.setPlaceholderText('Timecode...')
+        timecode.setMaxLength(11)
+        timecode.setFixedWidth(80)
+        #timecode.setInputMask('99:99:99:99')
+
+        def on_timecode_edited():
+            text = timecode.text()
+            text = sanitize_timecode(text)
+            timecode.setText(text)
+            timecode.clearFocus()
+
+        timecode.editingFinished.connect(on_timecode_edited)
+        toolbar.addWidget(timecode)
+        self._lineedit_timecode = timecode
 
         toolbar.addAction(action_encode)
 
@@ -189,9 +217,17 @@ class MainWindow(QMainWindow):
         media_ids = self._get_selected_media_ids(True)
         profile = self._combo_profile.currentData()
         framerate = self._combo_framerate.currentData()
+
+        text = self._lineedit_timecode.text()
+        timecode = text if text else None
+
+        b = self._action_burn_in.isChecked()
+        burn_in = True if b else None
+
         log.info(f'encode selection: {profile} {framerate}, {len(media_ids)} items')
         self._status(f'Encoding {len(media_ids)} items...')
-        self._engine.encode_items(ids=media_ids, profile=profile, framerate=framerate)
+
+        self._engine.encode_items(ids=media_ids, profile=profile, framerate=framerate, timecode=timecode, burn_in=burn_in)
         return True
 
     def _delete_selection(self):

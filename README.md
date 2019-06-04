@@ -13,7 +13,7 @@ First, download a binary for your platform from the [release page](https://githu
 The encoder accepts both video files and image sequences.
 
 #### Importing media
-You can add videos by dragging and dropping them into the central area, or by click 'Add Videos' and selecting them using the file browser.
+You can add videos by dragging and dropping them into the central area, or by clicking 'Add Videos' and selecting them using the file browser.
 
 To add image sequences, drag the containing folder into the central area, or click 'Add Folder' and select the containing folder.
 
@@ -29,6 +29,10 @@ To stop a recursive scan, you can click 'Stop Scan'. But it's a little buggy at 
 One the media items appear in the list, you can see various metadata - duration, frame rate, dimensions, codec, colorspace etc. Double click on an item to preview the source media via [ffplay](https://ffmpeg.org/ffplay.html).
 
 You can edit the list by selecting items and pressing the delete key to remove them.
+
+#### Timecode
+
+To add timecode metadata, enter a valid timecode (or part of a timecode - eg entering `3` will become `03:00:00:00`) into the timecode box. You can also render a burn-in via the 'Timecode Burn-in' option in the 'Filters' menu.
 
 #### Encoding
 

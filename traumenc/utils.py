@@ -1,3 +1,4 @@
+import re
 import logging
 from config import config
 
@@ -50,3 +51,31 @@ def setup_logging(color=False):
     root.setLevel(level)
 
     return logging
+
+
+def sanitize_timecode(text):
+    def format(hh, mm, ss, ff):
+        return f'{hh:02}:{mm:02}:{ss:02}:{ff:02}'
+
+    m = re.match('([0-9][0-9]?)(?::([0-9]{2})(?::([0-9]{2})(?::([0-9]{2}))?)?)?', text)
+    if not m:
+        return ''
+
+    d = m.groups()
+
+    hh = int(d[0])
+    if hh > 23:
+        return ''
+
+    mm = int(d[1]) if d[1] else 0
+    if mm > 59:
+        return ''
+
+    ss = int(d[2]) if d[2] else 0
+    if ss > 59:
+        return ''
+
+    ff = int(d[3]) if d[3] else 0
+
+    return format(hh, mm, ss, ff)
+
