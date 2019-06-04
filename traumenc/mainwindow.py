@@ -163,7 +163,8 @@ class MainWindow(QMainWindow):
         timecode = QLineEdit()
         timecode.setPlaceholderText('Timecode...')
         timecode.setMaxLength(11)
-        timecode.setFixedWidth(80)
+        timecode.setFixedWidth(90)
+        timecode.setAlignment(Qt.AlignCenter)
         #timecode.setInputMask('99:99:99:99')
 
         def on_timecode_edited():
