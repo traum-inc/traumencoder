@@ -13,6 +13,7 @@ echo "Building $appname with PyInstaller."
 pyinstaller -y `
     --add-data="config.ini;." `
     --add-data="icons;icons" `
+    --add-data="fonts;fonts" `
     --add-data="bin;bin" `
     --windowed `
     --noupx `
