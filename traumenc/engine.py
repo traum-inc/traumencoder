@@ -556,8 +556,6 @@ def encode_item(id, profile, framerate=None, timecode=None, burn_in=None, outpat
             f'-timecode {timecode}')
 
     if burn_in:
-        # FIXME
-        # escape timecode spec
         if timecode:
             burn_in_timecode = timecode.replace(':', r'\:')
         else:
@@ -565,7 +563,7 @@ def encode_item(id, profile, framerate=None, timecode=None, burn_in=None, outpat
 
         fontpath = 'fonts/DroidSansMono.ttf'
         timecode_args.append(
-            f'-vf "drawtext=fontfile=${fontpath}: timecode=\'{burn_in_timecode}\': r=25: x=(w-tw)/2: y=h-lh-20: fontcolor=white: fontsize=25: box=0: boxcolor=0x00000000@1: borderw=1"')
+            f'-vf "drawtext=fontfile={fontpath}: timecode=\'{burn_in_timecode}\': r=25: x=(w-tw)/2: y=h-lh-20: fontcolor=white: fontsize=25: box=0: boxcolor=0x00000000@1: borderw=1"')
 
     timecode_args = ' '.join(timecode_args)
 
